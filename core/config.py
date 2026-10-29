@@ -1,7 +1,8 @@
 """환경변수 설정.
 
-로컬에서는 프로젝트 루트의 .env를 읽고, Streamlit Community Cloud에서는
-Secrets 화면의 최상위 키가 환경변수로 노출되므로 같은 코드로 동작한다.
+로컬에서는 프로젝트 루트의 .env를 읽고, Streamlit Community Cloud에서는 Secrets의 최상위 키를
+환경변수로 옮겨 같은 코드로 동작한다. Streamlit은 st.secrets에 처음 접근할 때에야 최상위 키를
+환경변수로 노출하므로, 그 순서에 기대지 않고 여기서 직접 옮긴다 ([auth] 같은 섹션은 옮기지 않는다).
 ANTHROPIC_API_KEY, LANGSMITH_* 는 LangChain이 환경변수에서 직접 읽는다.
 """
 from __future__ import annotations
@@ -15,6 +16,22 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
+
+
+def _load_streamlit_secrets() -> None:
+    """Streamlit Secrets의 최상위 값을 환경변수로 옮긴다. 이미 있는 환경변수(.env 등)는 덮어쓰지 않는다."""
+    try:
+        import streamlit as st
+
+        items = st.secrets.to_dict().items()
+    except Exception:          # Secrets 파일이 없는 로컬·스크립트 실행
+        return
+    for key, value in items:
+        if not isinstance(value, dict):
+            os.environ.setdefault(key, str(value))
+
+
+_load_streamlit_secrets()
 
 REQUIRED = (
     "TIDB_HOST",
