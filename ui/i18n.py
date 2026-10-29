@@ -345,6 +345,10 @@ T: dict[str, tuple[str, str]] = {
                         "거절 사유는 smart ingest(messages + mode=smart)로 보냅니다.",
                         "{n} mem9 REST API calls (newest first). Recommendations load the user's full memory "
                         "list, and rejection reasons are sent with smart ingest (messages + mode=smart)."),
+    "p5.mem9_empty": ("아직 호출이 없습니다. 이 기록은 서버 메모리에 있어 앱이 재시작(배포)되면 비워집니다. "
+                      "사용자 대시보드를 열거나 추천을 받으면 호출이 쌓입니다.",
+                      "No calls yet. This log lives in server memory and is cleared when the app restarts "
+                      "(for example, after a deploy). Open the user dashboard or get recommendations to add calls."),
     "p5.graph_title": ("**추천·승인 그래프** · 점선은 조건 분기, `choose`와 `tools`(execute_order) 안에서 사람을 기다립니다",
                        "**Recommendation and approval graph** · dotted lines are conditional; it waits for a "
                        "person in `choose` and inside `tools` (execute_order)"),
