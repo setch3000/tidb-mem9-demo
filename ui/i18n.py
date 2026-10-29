@@ -88,11 +88,9 @@ T: dict[str, tuple[str, str]] = {
                     "opportunities that fit each user's assets and memory, and handing approved orders to an "
                     "execution engine. Sign-in is required because the demo uses a paid LLM."),
     "login.button": ("Google로 로그인", "Sign in with Google"),
-    "login.ip": ("접속 IP: {ip}", "Your IP address: {ip}"),
-    "login.ip_none": ("접속 IP: 확인할 수 없음 (로컬 접속)", "Your IP address: unavailable (local access)"),
-    "login.notice": ("로그인하면 이메일, 이름, 접속 IP, 시각, 데모 사용 기록이 저장됩니다. "
+    "login.notice": ("로그인하면 이메일, 이름, 시각, 데모 사용 기록이 저장됩니다. "
                      "기록은 데모 운영과 LLM 비용 관리에만 씁니다.",
-                     "When you sign in, your email, name, IP address, time, and demo activity are recorded. "
+                     "When you sign in, your email, name, time, and demo activity are recorded. "
                      "The records are used only to run the demo and manage LLM cost."),
     "login.dev_mode": ("로컬 테스트 모드 (DEMO_AUTH=off) · {email}", "Local test mode (DEMO_AUTH=off) · {email}"),
 
@@ -172,11 +170,8 @@ T: dict[str, tuple[str, str]] = {
     "col.event": ("이벤트", "Event"),
     "col.email": ("이메일", "Email"),
     "col.name": ("이름", "Name"),
-    "col.ip": ("IP", "IP"),
-    "col.forwarded_for": ("X-Forwarded-For", "X-Forwarded-For"),
     "col.detail": ("상세", "Detail"),
     "col.last_seen": ("마지막 접속", "Last seen"),
-    "col.last_ip": ("마지막 IP", "Last IP"),
     "col.logins": ("로그인", "Sign-ins"),
     "col.llm_actions": ("LLM 사용", "LLM actions"),
 
@@ -382,11 +377,10 @@ T: dict[str, tuple[str, str]] = {
     "p6.per_user": ("**사용자별 집계**", "**By user**"),
     "p6.per_user_alt": ("사용자별 접속·사용 집계", "Access and activity by user"),
     "p6.download": ("CSV 다운로드", "Download CSV"),
-    "p6.caption": ("IP는 기록용입니다. 공식 문서 기준으로 위조될 수 있어 보안 판단에는 쓰지 않습니다. "
-                   "배포 환경에서는 프록시 때문에 실제 접속자 IP가 X-Forwarded-For에 담길 수 있습니다.",
-                   "IP addresses are for record-keeping. Per the Streamlit docs they can be spoofed, so they "
-                   "are not used for security decisions. When deployed, the real client IP may appear in "
-                   "X-Forwarded-For because of the proxy."),
+    "p6.caption": ("접속 IP는 기록하지 않습니다. 이 호스팅 환경(Streamlit Community Cloud)은 실제 접속자 IP를 "
+                   "앱에 전달하지 않아, 사용자 구분은 Google 계정으로 합니다.",
+                   "IP addresses are not recorded. This hosting environment (Streamlit Community Cloud) does "
+                   "not pass the real client IP to the app, so users are identified by their Google account."),
     "p6.not_admin": ("관리자만 볼 수 있습니다.", "Only admins can view this page."),
 }
 

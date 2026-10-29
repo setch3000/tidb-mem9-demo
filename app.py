@@ -23,8 +23,6 @@ if not audit.is_logged_in():
     lang_toggle()
     st.title(t("app.title"))
     st.write(t("login.intro"))
-    ip = audit.display_ip()
-    st.info(t("login.ip", ip=ip) if ip else t("login.ip_none"))
     st.caption(t("login.notice"))
     audit.log_once("visit")
     if st.button(t("login.button"), type="primary", icon=":material/login:"):

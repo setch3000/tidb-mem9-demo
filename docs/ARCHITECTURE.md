@@ -390,7 +390,7 @@ state = graph.invoke(Command(resume={"action": "reject", "reason": reason}), con
 | `opportunities` | id, signal_id, title, asset, chain, protocol_id, strategy_id, action_type, expected_apy, risk_level, horizon, confidence, summary, rationale, summary_vec (Auto Embedding), status, created_at | LLM이 구조화한 투자 기회 |
 | `recommendations` | id, user_id, opportunity_id, thread_id, rank, rationale, memory_refs(JSON), command(JSON), model, status(`AWAITING_APPROVAL`/`APPROVED`/`REJECTED`), decided_at, created_at | 추천 이력, LangGraph 스레드 연결 |
 | `execution_orders` | id, recommendation_id, command(JSON), status(`PENDING`/`SUBMITTED`/`CONFIRMED`/`FAILED`), tx_hash, created_at, updated_at | 실행 명령과 상태 |
-| `access_logs` | id, at, event, email, name, ip, forwarded_for, user_agent, session_id, detail(JSON) | 접속·사용 기록 (로그인, IP, LLM 사용). **데모 초기화로 지우지 않음** |
+| `access_logs` | id, at, event, email, name, ip·forwarded_for(비워 둠), user_agent, session_id, detail(JSON) | 접속·사용 기록 (로그인, LLM 사용). **데모 초기화로 지우지 않음** |
 | `lg_checkpoints` | thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, step, source, checkpoint(BLOB), metadata(BLOB), created_at | LangGraph 체크포인트 (`TiDBSaver.setup()`이 생성, 직접 수정하지 않음) |
 | `lg_checkpoint_blobs` | thread_id, checkpoint_ns, channel, version, type, blob | 채널별 상태 값 |
 | `lg_checkpoint_writes` | thread_id, checkpoint_ns, checkpoint_id, task_id, idx, task_path, channel, type, blob | 노드 중간 쓰기 (interrupt 대기 정보 포함) |
@@ -605,15 +605,18 @@ class ExecutionCommand(BaseModel):
 
 ### 6.2 Google 로그인과 접속·사용 기록
 
-- **로그인**: `st.login()`(Google OIDC, `streamlit[auth]`)을 씁니다. 허용 목록 없이 Google 계정이면 누구나 들어올 수 있고, 대신 모든 접속과 사용을 기록합니다.
+- **로그인**: `st.login()`(Google OIDC, `streamlit[auth]`)을 씁니다. 허용 목록 없이 Google 계정이면 누구나 들어올 수 있고, 대신 모든 접속과 사용을 계정 기준으로 기록합니다.
   - `[auth]` 설정이 없으면 앱을 열지 않습니다. 실수로 보호 없이 공개되는 일을 막기 위해서입니다.
   - 로컬 테스트에서만 `DEMO_AUTH=off`로 우회합니다. 배포 Secrets에는 넣지 않습니다.
-- **로그인 화면**: 접속 IP를 표시하고, "로그인하면 이메일·이름·접속 IP·시각·사용 기록이 저장됩니다"라고 안내합니다.
+- **로그인 화면**: "로그인하면 이메일·이름·시각·사용 기록이 저장됩니다"라고 안내합니다.
 - **기록 (`access_logs`, [core/audit.py](../core/audit.py))**
   - 이벤트: `visit`(로그인 전 방문, 세션당 1회), `login`(세션당 1회), `logout`, `llm:analysis`, `llm:recommend`, `llm:execute_request`, `llm:decision`, `admin:reset`
-  - IP는 `st.context.ip_address`와 `X-Forwarded-For` 첫 값을 함께 저장합니다. 공식 문서 기준으로 위조될 수 있어 **기록용으로만** 씁니다. 배포 후 실제 접속자 IP가 어느 쪽에 담기는지 확인합니다.
   - 로그인 실패는 Google 화면에서 일어나므로 앱이 볼 수 없습니다.
   - 기록이 실패해도 데모는 계속되고, 경고 로그를 남깁니다.
+- **접속 IP는 기록하지 않습니다.**
+  - 2026-10-29 배포 환경에서 확인한 결과, Streamlit Community Cloud는 실제 접속자 IP를 앱에 전달하지 않습니다. 앱에 보이는 값은 로컬 프록시(`127.0.0.1`)이고, `X-Forwarded-For`에는 내부망 주소(`10.x`) 두 개만 옵니다. 다른 IP 관련 헤더는 없습니다.
+  - 그래서 IP 표시와 저장을 없애고, 사용자 구분은 Google 계정으로 합니다.
+  - `ip`, `forwarded_for` 컬럼은 IP를 전달하는 호스팅(예: Google Cloud Run)으로 옮길 때를 위해 남겨 두고 비워 둡니다.
 - **관리자**: `ADMIN_EMAILS`(Secrets, 쉼표 구분)에 든 계정만 다음을 쓸 수 있습니다.
   - **⑥ 접속 기록** 화면: 고유 사용자·로그인·LLM 사용 수(오늘/전체), 이벤트 필터, 최근 500건, 사용자별 집계, CSV 다운로드. 모두 SQL 집계입니다.
   - **데모 초기화** 버튼
@@ -735,7 +738,7 @@ LANGSMITH_PROJECT=tidb-mem9-demo
 5. **Deploy** → 발급된 URL로 접속
    - TiDB 연결은 TLS가 필수이며, certifi CA 번들을 사용하므로 별도 파일 업로드는 필요 없습니다.
 6. 배포 URL이 정해지면 `[auth]`의 `redirect_uri`를 `https://<앱>.streamlit.app/oauth2callback`로 바꾸고, Google OAuth 클라이언트에도 같은 URI를 등록합니다.
-7. 실제 로그인으로 확인합니다: ⑥ 접속 기록에서 IP가 `ip`와 `forwarded_for` 중 어디에 담기는지 보고 이 문서에 기록합니다.
+7. 실제 로그인으로 확인합니다: ⑥ 접속 기록에 로그인 기록이 남는지 봅니다. (확인 결과 Community Cloud는 실제 접속자 IP를 전달하지 않아 IP는 기록하지 않습니다. 6.2절)
 
 ### 8.6 Google 로그인 설정 (OAuth 클라이언트)
 
@@ -778,7 +781,7 @@ tidb-mem9-demo/
 │   ├── recommender.py          # 추천 그래프 노드 함수: 기억 회상, 의도 생성, 하이브리드 SQL, LLM 추천, 검증
 │   ├── workflow.py             # 두 LangGraph 그래프 정의, 상태, interrupt 승인
 │   ├── checkpoint_tidb.py      # TiDB용 LangGraph 체크포인터 (TiDBSaver, lg_* 테이블)
-│   ├── audit.py                # 로그인 신원, 접속 IP, 접속·사용 기록(access_logs), 관리자 판별
+│   ├── audit.py                # 로그인 신원, 접속·사용 기록(access_logs), 관리자 판별
 │   ├── overseas.py             # 해외 거래소 월말 잔고 집계와 신고 기준 대비 정보 (해외 계좌 신고 참고, SQL만 사용)
 │   └── engine_mock.py          # 온체인 실행 시뮬레이션
 ├── sql/schema.sql

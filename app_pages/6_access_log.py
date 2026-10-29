@@ -1,4 +1,4 @@
-"""⑥ 접속 기록 (관리자 전용): 로그인·IP·LLM 사용 기록을 TiDB access_logs에서 집계."""
+"""⑥ 접속 기록 (관리자 전용): 로그인·LLM 사용 기록을 TiDB access_logs에서 집계."""
 import csv
 import io
 
@@ -40,7 +40,7 @@ if picked:
     where = f"WHERE event IN ({', '.join(['%s'] * len(picked))})"
     params = tuple(picked)
 events = db.query(
-    f"""SELECT at, event, email, name, ip, forwarded_for, detail FROM access_logs {where}
+    f"""SELECT at, event, email, name, detail FROM access_logs {where}
         ORDER BY at DESC LIMIT 500""", params, label="기록: 이벤트 조회") if picked else []
 
 st.markdown(t("p6.recent"))
@@ -56,7 +56,6 @@ if events:
 per_user = db.query(
     """
     SELECT email, MAX(name) AS name, MAX(at) AS last_seen,
-           SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(forwarded_for, ip) ORDER BY at DESC), ',', 1) AS last_ip,
            SUM(event = 'login') AS logins, SUM(event LIKE 'llm:%%') AS llm_actions
     FROM access_logs WHERE email IS NOT NULL
     GROUP BY email ORDER BY last_seen DESC

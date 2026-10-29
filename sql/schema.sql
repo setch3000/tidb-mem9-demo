@@ -153,15 +153,15 @@ CREATE TABLE IF NOT EXISTS execution_orders (
   KEY idx_order_rec (recommendation_id)
 );
 
--- 접속·사용 기록 (로그인, IP, LLM 사용). 데모 초기화로 지우지 않는다 (scripts/seed.py APP_TABLES에 넣지 않음)
+-- 접속·사용 기록 (로그인, LLM 사용). 데모 초기화로 지우지 않는다 (scripts/seed.py APP_TABLES에 넣지 않음)
 CREATE TABLE IF NOT EXISTS access_logs (
   id            BIGINT PRIMARY KEY AUTO_RANDOM,
   at            TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
   event         VARCHAR(32)   NOT NULL,          -- visit / login / logout / llm:* / admin:*
   email         VARCHAR(255),
   name          VARCHAR(255),
-  ip            VARCHAR(64),                     -- st.context.ip_address (기록용, 위조 가능)
-  forwarded_for VARCHAR(255),                    -- X-Forwarded-For 헤더 (프록시 뒤의 실제 접속자 IP 후보)
+  ip            VARCHAR(64),                     -- 비워 둠: 현재 호스팅은 실제 접속자 IP를 전달하지 않음
+  forwarded_for VARCHAR(255),                    -- 비워 둠: IP를 전달하는 호스팅으로 옮기면 사용
   user_agent    VARCHAR(512),
   session_id    VARCHAR(64),
   detail        JSON,
