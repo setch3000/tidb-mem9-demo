@@ -105,9 +105,26 @@ def log_event(event: str, detail: dict[str, Any] | None = None) -> None:
         logger.warning("access_logs 기록 실패 (event=%s)", event, exc_info=True)
 
 
+IP_HEADER_HINTS = ("ip", "forward", "client", "real", "via", "x-envoy")
+SECRET_HEADERS = ("cookie", "authorization", "token", "secret")
+
+
+def ip_headers() -> dict[str, Any]:
+    """프록시 뒤 실제 접속자 IP를 찾기 위한 진단 정보: 헤더 이름 목록과 IP 관련 헤더 값만 (쿠키·인증 헤더는 제외)."""
+    try:
+        headers = dict(st.context.headers)
+    except Exception:
+        return {}
+    safe = {k: v for k, v in headers.items() if not any(s in k.lower() for s in SECRET_HEADERS)}
+    return {
+        "header_names": sorted(safe),
+        "ip_headers": {k: v for k, v in safe.items() if any(s in k.lower() for s in IP_HEADER_HINTS)},
+    }
+
+
 def log_once(event: str, detail: dict[str, Any] | None = None) -> None:
-    """세션당 한 번만 기록한다 (visit, login)."""
+    """세션당 한 번만 기록한다 (visit, login). IP 진단 정보를 함께 남긴다."""
     key = f"_audit_logged_{event}"
     if not st.session_state.get(key):
         st.session_state[key] = True
-        log_event(event, detail)
+        log_event(event, {**(detail or {}), **ip_headers()})
