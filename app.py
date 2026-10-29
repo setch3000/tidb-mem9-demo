@@ -35,14 +35,18 @@ audit.log_once("login")
 is_admin = audit.is_admin()
 
 PAGES = [
-    st.Page("app_pages/1_Signal_분석.py", title=t("nav.signal"), icon=":material/feed:", default=True),
-    st.Page("app_pages/2_사용자_대시보드.py", title=t("nav.dashboard"), icon=":material/account_balance_wallet:"),
-    st.Page("app_pages/3_개인화_추천.py", title=t("nav.recommend"), icon=":material/auto_awesome:"),
-    st.Page("app_pages/4_승인_실행.py", title=t("nav.approval"), icon=":material/task_alt:"),
-    st.Page("app_pages/5_Behind_the_scenes.py", title=t("nav.behind"), icon=":material/manage_search:"),
+    st.Page("app_pages/1_signal_analysis.py", title=t("nav.signal"), icon=":material/feed:", default=True),
+    st.Page("app_pages/2_user_dashboard.py", title=t("nav.dashboard"), icon=":material/account_balance_wallet:",
+            url_path="dashboard"),
+    st.Page("app_pages/3_recommendations.py", title=t("nav.recommend"), icon=":material/auto_awesome:",
+            url_path="recommendations"),
+    st.Page("app_pages/4_approval.py", title=t("nav.approval"), icon=":material/task_alt:", url_path="approval"),
+    st.Page("app_pages/5_behind_the_scenes.py", title=t("nav.behind"), icon=":material/manage_search:",
+            url_path="behind-the-scenes"),
 ]
 if is_admin:
-    PAGES.append(st.Page("app_pages/6_접속_기록.py", title=t("nav.audit"), icon=":material/admin_panel_settings:"))
+    PAGES.append(st.Page("app_pages/6_access_log.py", title=t("nav.audit"), icon=":material/admin_panel_settings:",
+                         url_path="access-log"))
 nav = st.navigation(PAGES)
 
 with st.sidebar:

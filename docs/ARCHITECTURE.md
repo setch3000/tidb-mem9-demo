@@ -762,11 +762,12 @@ tidb-mem9-demo/
 ├── ui/common.py                # 화면 공통: 번역 캐시, 체크포인트 상태 읽기, 추천 카드, 그래프 스트리밍
 ├── ui/i18n.py                  # 한·영 문구 사전 t(), 언어 토글, 금액 표기, SQL 라벨·컬럼 번역표
 ├── app_pages/                  # st.navigation이 묶는 화면 (Streamlit 권장 구조)
-│   ├── 1_Signal_분석.py
-│   ├── 2_사용자_대시보드.py
-│   ├── 3_개인화_추천.py
-│   ├── 4_승인_실행.py
-│   └── 5_Behind_the_scenes.py
+│   ├── 1_signal_analysis.py     # 첫 화면 /
+│   ├── 2_user_dashboard.py      # /dashboard
+│   ├── 3_recommendations.py     # /recommendations
+│   ├── 4_approval.py            # /approval
+│   ├── 5_behind_the_scenes.py   # /behind-the-scenes
+│   └── 6_access_log.py          # /access-log (관리자 전용)
 ├── core/
 │   ├── config.py               # 환경변수 로드 (.env / Streamlit Secrets), 누락 키 확인
 │   ├── db.py                   # TiDB 연결 (PyMySQL, TLS), 공유 연결 Database, SQL 로그 기록

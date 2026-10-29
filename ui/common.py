@@ -17,8 +17,8 @@ from core.db import get_db
 from core.llm import translate
 from ui.i18n import lang, t
 
-PAGE_RECOMMEND = "app_pages/3_개인화_추천.py"
-PAGE_APPROVAL = "app_pages/4_승인_실행.py"
+PAGE_RECOMMEND = "app_pages/3_recommendations.py"
+PAGE_APPROVAL = "app_pages/4_approval.py"
 STEP_NODES = ("recall_memory", "build_intent", "search_candidates", "recommend", "validate",
               "save_recommendations", "exec_agent", "tools")
 MEMORY_ICONS = {"pinned": "📌", "insight": "💡", "session": "💬"}

@@ -23,8 +23,8 @@ os.chdir(ROOT)
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 HANGUL = re.compile(r"[가-힣]")
-PAGES = ["app_pages/1_Signal_분석.py", "app_pages/2_사용자_대시보드.py", "app_pages/3_개인화_추천.py",
-         "app_pages/4_승인_실행.py", "app_pages/5_Behind_the_scenes.py", "app_pages/6_접속_기록.py"]
+PAGES = ["app_pages/1_signal_analysis.py", "app_pages/2_user_dashboard.py", "app_pages/3_recommendations.py",
+         "app_pages/4_approval.py", "app_pages/5_behind_the_scenes.py", "app_pages/6_access_log.py"]
 ADMIN = "admin@example.com"
 
 
