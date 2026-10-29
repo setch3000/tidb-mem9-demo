@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "name": "김하늘 (A · 균형형)",
+    "name_en": "Haneul Kim (A · Balanced)",
+    "risk_profile": "balanced",
+    "max_risk_level": 3,
+    "base_currency": "KRW",
+    "exchange_ids": [
+      1,
+      3,
+      4
+    ],
+    "onboarding_memories": [
+      "보유한 USDC로 연 10% 이상 수익을 내는 것이 목표임",
+      "주로 Upbit, Uniswap, Aave를 사용함",
+      "레버리지·파생상품은 원하지 않음"
+    ]
+  },
+  {
+    "id": 2,
+    "name": "이준호 (B · 보수형)",
+    "name_en": "Junho Lee (B · Conservative)",
+    "risk_profile": "conservative",
+    "max_risk_level": 2,
+    "base_currency": "KRW",
+    "exchange_ids": [
+      2,
+      6,
+      4,
+      5
+    ],
+    "onboarding_memories": [
+      "BTC와 ETH는 팔지 않고 장기 보유할 계획임",
+      "원금 손실 가능성이 있는 상품은 피함",
+      "Lido 스테이킹을 써 본 경험이 있음"
+    ]
+  },
+  {
+    "id": 3,
+    "name": "박도윤 (C · 공격형)",
+    "name_en": "Doyun Park (C · Aggressive)",
+    "risk_profile": "aggressive",
+    "max_risk_level": 5,
+    "base_currency": "USD",
+    "exchange_ids": [
+      2,
+      3,
+      7
+    ],
+    "onboarding_memories": [
+      "고수익 기회를 적극적으로 찾음",
+      "감사받지 않은 프로토콜에는 소액만 넣음",
+      "Solana 생태계를 선호함"
+    ]
+  }
+]

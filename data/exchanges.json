@@ -1,0 +1,16 @@
+{
+  "_comment": "chains = 이 거래소·프로토콜로 접근할 수 있는 위치. CEX는 자기 계정(거래소 이름)과 입출금 네트워크를 함께 가진다. region: KR(국내 거래소) / GLOBAL(해외 거래소) / ONCHAIN(DeFi 프로토콜).",
+  "exchanges": [
+    {"id": 1,  "name": "Upbit",    "type": "CEX", "region": "KR",      "chains": ["upbit", "ethereum", "bitcoin", "solana"]},
+    {"id": 2,  "name": "Binance",  "type": "CEX", "region": "GLOBAL",  "chains": ["binance", "ethereum", "arbitrum", "base", "bitcoin", "solana"]},
+    {"id": 3,  "name": "Uniswap",  "type": "DEX", "region": "ONCHAIN", "chains": ["ethereum", "arbitrum", "base"]},
+    {"id": 4,  "name": "Aave",     "type": "DEX", "region": "ONCHAIN", "chains": ["ethereum", "arbitrum", "base"]},
+    {"id": 5,  "name": "Lido",     "type": "DEX", "region": "ONCHAIN", "chains": ["ethereum"]},
+    {"id": 6,  "name": "Bybit",    "type": "CEX", "region": "GLOBAL",  "chains": ["bybit", "ethereum", "arbitrum"]},
+    {"id": 7,  "name": "OKX",      "type": "CEX", "region": "GLOBAL",  "chains": ["okx", "ethereum", "arbitrum", "solana", "kaia"]},
+    {"id": 8,  "name": "Coinbase", "type": "CEX", "region": "GLOBAL",  "chains": ["coinbase", "ethereum", "base", "bitcoin", "solana"]},
+    {"id": 9,  "name": "Bithumb",  "type": "CEX", "region": "KR",      "chains": ["bithumb", "ethereum", "bitcoin"]},
+    {"id": 10, "name": "Coinone",  "type": "CEX", "region": "KR",      "chains": ["coinone", "ethereum", "bitcoin"]},
+    {"id": 11, "name": "Korbit",   "type": "CEX", "region": "KR",      "chains": ["korbit", "ethereum", "bitcoin"]}
+  ]
+}

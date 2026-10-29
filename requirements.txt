@@ -1,0 +1,16 @@
+# 2026-10-29 로컬(Python 3.12)에서 스모크 테스트·시나리오(한·영)·화면 점검을 통과한 버전으로 고정합니다.
+# 버전을 올릴 때는 scripts/smoke_test.py, run_scenario.py(--lang ko/en), ui_check.py를 다시 통과시킵니다.
+streamlit[auth]==1.66.1
+altair==6.3.0
+pymysql==1.2.3
+certifi==2026.10.23
+httpx==0.28.1
+pydantic==2.14.1
+python-dotenv==1.2.4
+anthropic==2.3.0
+langchain-anthropic==1.7.7
+langchain-core==1.7.1
+langgraph==1.2.18
+langgraph-checkpoint==4.3.1
+langgraph-prebuilt==1.1.1
+langsmith==0.14.14

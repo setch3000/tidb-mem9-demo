@@ -1,0 +1,58 @@
+{
+  "_comment": "가격·환율·잔고는 모두 데모용 합성 값이다. chain = 자산이 있는 위치 (온체인 네트워크 또는 거래소 계정). usd_value는 seed.py가 amount x price로 계산한다.",
+  "usd_krw": 1380,
+  "prices": {"USDC": 1.0, "USDT": 1.0, "ETH": 3400.0, "BTC": 98000.0, "SOL": 180.0, "XRP": 2.3, "KAIA": 0.18},
+  "assets": [
+    {"symbol": "USDC", "chain": "ethereum", "category": "stable"},
+    {"symbol": "USDC", "chain": "arbitrum", "category": "stable"},
+    {"symbol": "USDC", "chain": "base",     "category": "stable"},
+    {"symbol": "USDT", "chain": "ethereum", "category": "stable"},
+    {"symbol": "USDT", "chain": "arbitrum", "category": "stable"},
+    {"symbol": "USDT", "chain": "binance",  "category": "stable"},
+    {"symbol": "USDT", "chain": "bybit",    "category": "stable"},
+    {"symbol": "ETH",  "chain": "ethereum", "category": "major"},
+    {"symbol": "ETH",  "chain": "arbitrum", "category": "major"},
+    {"symbol": "ETH",  "chain": "base",     "category": "major"},
+    {"symbol": "ETH",  "chain": "upbit",    "category": "major"},
+    {"symbol": "BTC",  "chain": "bitcoin",  "category": "major"},
+    {"symbol": "BTC",  "chain": "binance",  "category": "major"},
+    {"symbol": "SOL",  "chain": "solana",   "category": "major"},
+    {"symbol": "SOL",  "chain": "binance",  "category": "major"},
+    {"symbol": "XRP",  "chain": "upbit",    "category": "alt"},
+    {"symbol": "KAIA", "chain": "okx",      "category": "alt"}
+  ],
+  "holdings": [
+    {"user_id": 1, "asset_symbol": "USDC", "chain": "arbitrum", "amount": 5000},
+    {"user_id": 1, "asset_symbol": "USDT", "chain": "ethereum", "amount": 3000},
+    {"user_id": 1, "asset_symbol": "ETH",  "chain": "arbitrum", "amount": 1.2},
+    {"user_id": 1, "asset_symbol": "ETH",  "chain": "ethereum", "amount": 0.5},
+    {"user_id": 1, "asset_symbol": "ETH",  "chain": "upbit",    "amount": 0.8},
+    {"user_id": 1, "asset_symbol": "XRP",  "chain": "upbit",    "amount": 2000},
+
+    {"user_id": 2, "asset_symbol": "BTC",  "chain": "binance",  "amount": 3.2},
+    {"user_id": 2, "asset_symbol": "USDT", "chain": "bybit",    "amount": 20000},
+    {"user_id": 2, "asset_symbol": "ETH",  "chain": "ethereum", "amount": 4.0},
+    {"user_id": 2, "asset_symbol": "USDC", "chain": "base",     "amount": 8000},
+
+    {"user_id": 3, "asset_symbol": "SOL",  "chain": "binance",  "amount": 150},
+    {"user_id": 3, "asset_symbol": "KAIA", "chain": "okx",      "amount": 50000},
+    {"user_id": 3, "asset_symbol": "ETH",  "chain": "arbitrum", "amount": 2.5},
+    {"user_id": 3, "asset_symbol": "USDC", "chain": "arbitrum", "amount": 3000}
+  ],
+  "overseas_snapshots": {
+    "_comment": "해외 거래소 월말 잔고 이력 (해외 계좌 신고 참고 장면용). 마지막 달 수량은 현재 보유 자산과 같다.",
+    "months": ["2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31", "2026-09-30", "2026-10-31"],
+    "month_prices": {
+      "BTC":  [88000, 92000, 95000, 97000, 96000, 98000],
+      "USDT": [1, 1, 1, 1, 1, 1],
+      "SOL":  [150, 160, 170, 175, 170, 180],
+      "KAIA": [0.15, 0.16, 0.17, 0.18, 0.17, 0.18]
+    },
+    "balances": [
+      {"user_id": 2, "exchange_id": 2, "asset_symbol": "BTC",  "amounts": [2.6, 2.8, 2.9, 3.0, 3.1, 3.2]},
+      {"user_id": 2, "exchange_id": 6, "asset_symbol": "USDT", "amounts": [15000, 16000, 18000, 18000, 20000, 20000]},
+      {"user_id": 3, "exchange_id": 2, "asset_symbol": "SOL",  "amounts": [150, 150, 150, 150, 150, 150]},
+      {"user_id": 3, "exchange_id": 7, "asset_symbol": "KAIA", "amounts": [50000, 50000, 50000, 50000, 50000, 50000]}
+    ]
+  }
+}

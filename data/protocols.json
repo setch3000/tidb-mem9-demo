@@ -1,0 +1,43 @@
+{
+  "_comment": "프로토콜·거래소 상품 이름은 실제, TVL·리스크 점수는 데모용 합성 값이다. 거래소 상품(id 14~17)은 chain이 거래소 계정이고, audited는 준비금 증명 공개 여부로 본다.",
+  "protocols": [
+    {"id": 1,  "name": "Aave v3",     "chain": "ethereum", "tvl_usd": 12000000000, "audited": true,  "risk_score": 1},
+    {"id": 2,  "name": "Aave v3",     "chain": "arbitrum", "tvl_usd": 1500000000,  "audited": true,  "risk_score": 1},
+    {"id": 3,  "name": "Aave v3",     "chain": "base",     "tvl_usd": 800000000,   "audited": true,  "risk_score": 2},
+    {"id": 4,  "name": "Compound v3", "chain": "ethereum", "tvl_usd": 2000000000,  "audited": true,  "risk_score": 2},
+    {"id": 5,  "name": "Uniswap v3",  "chain": "ethereum", "tvl_usd": 3000000000,  "audited": true,  "risk_score": 3},
+    {"id": 6,  "name": "Uniswap v3",  "chain": "arbitrum", "tvl_usd": 900000000,   "audited": true,  "risk_score": 3},
+    {"id": 7,  "name": "Lido",        "chain": "ethereum", "tvl_usd": 20000000000, "audited": true,  "risk_score": 1},
+    {"id": 8,  "name": "Curve",       "chain": "ethereum", "tvl_usd": 2000000000,  "audited": true,  "risk_score": 2},
+    {"id": 9,  "name": "Morpho",      "chain": "base",     "tvl_usd": 1000000000,  "audited": true,  "risk_score": 2},
+    {"id": 10, "name": "Pendle",      "chain": "arbitrum", "tvl_usd": 400000000,   "audited": true,  "risk_score": 3},
+    {"id": 11, "name": "GMX",         "chain": "arbitrum", "tvl_usd": 500000000,   "audited": true,  "risk_score": 4},
+    {"id": 12, "name": "Jito",        "chain": "solana",   "tvl_usd": 2000000000,  "audited": true,  "risk_score": 2},
+    {"id": 13, "name": "FrogSwap",    "chain": "arbitrum", "tvl_usd": 5000000,     "audited": false, "risk_score": 5},
+    {"id": 14, "name": "Upbit Staking",        "chain": "upbit",   "tvl_usd": null, "audited": true, "risk_score": 1},
+    {"id": 15, "name": "Binance Simple Earn", "chain": "binance", "tvl_usd": null, "audited": true, "risk_score": 1},
+    {"id": 16, "name": "Bybit Savings",       "chain": "bybit",   "tvl_usd": null, "audited": true, "risk_score": 2},
+    {"id": 17, "name": "OKX Earn",            "chain": "okx",     "tvl_usd": null, "audited": true, "risk_score": 2}
+  ],
+  "strategies": [
+    {
+      "id": 1, "type": "swap", "description": "자산 교환",
+      "action_template": [{"action": "swap", "from_asset": "{asset}", "to_asset": "{to_asset}"}]
+    },
+    {
+      "id": 2, "type": "lend", "description": "렌딩 프로토콜에 예치해 이자 수익",
+      "action_template": [{"action": "deposit", "protocol": "{protocol}", "asset": "{asset}"}]
+    },
+    {
+      "id": 3, "type": "stake", "description": "스테이킹 (유동성 스테이킹 토큰 수령)",
+      "action_template": [{"action": "stake", "protocol": "{protocol}", "asset": "{asset}"}]
+    },
+    {
+      "id": 4, "type": "lp", "description": "유동성 공급: 절반을 페어 자산으로 교환 후 풀에 예치",
+      "action_template": [
+        {"action": "swap", "from_asset": "{asset}", "to_asset": "{pair_asset}", "ratio": 0.5},
+        {"action": "deposit", "protocol": "{protocol}", "asset": "{asset}-{pair_asset}"}
+      ]
+    }
+  ]
+}
