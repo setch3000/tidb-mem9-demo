@@ -56,7 +56,15 @@ opportunities = db.query(
     ORDER BY o.risk_level, o.expected_apy DESC
     """, label="화면: 투자 기회 목록")
 
-tab_opp, tab_raw = st.tabs([t("p1.tab_opps", n=len(opportunities)), t("p1.tab_raw", n=len(signals))])
+# 원문(입력) → 투자 기회(결과) 순서. 분석 전에는 원문, 분석 후에는 결과 탭을 먼저 보여준다
+raw_label, opp_label = t("p1.tab_raw", n=len(signals)), t("p1.tab_opps", n=len(opportunities))
+tab_raw, tab_opp = st.tabs([raw_label, opp_label], default=opp_label if opportunities else raw_label)
+with tab_raw:
+    st.caption(t("p1.raw_caption"))
+    st.dataframe(
+        columns([{"id": s["id"], "source": s["source"], "author": s["author"], "posted_at": s["posted_at"],
+                  "analyzed": "✓" if s["analyzed"] else "", "content": s["content"]} for s in signals]),
+        hide_index=True, alt=t("p1.tab_raw", n=len(signals)))
 with tab_opp:
     if opportunities:
         texts = localized([x for o in opportunities for x in (o["opportunity"], o["summary"])])
@@ -71,9 +79,3 @@ with tab_opp:
             reasons = localized([s["reason"] for s in result["skipped"]])
             st.dataframe(columns([{"signal": s["signal_id"], "reason": r} for s, r in zip(result["skipped"], reasons)]),
                          hide_index=True, alt=t("p1.skipped", n=len(reasons)))
-with tab_raw:
-    st.caption(t("p1.raw_caption"))
-    st.dataframe(
-        columns([{"id": s["id"], "source": s["source"], "author": s["author"], "posted_at": s["posted_at"],
-                  "analyzed": "✓" if s["analyzed"] else "", "content": s["content"]} for s in signals]),
-        hide_index=True, alt=t("p1.tab_raw", n=len(signals)))
