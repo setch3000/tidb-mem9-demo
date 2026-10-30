@@ -86,7 +86,7 @@ RECOMMEND_SYSTEM = """당신은 개인 DeFi 투자 도우미입니다. 후보 �
 - slippage_bps: 스테이블코인 단계는 30 이하, 그 외는 100 이하. max_slippage_bps는 단계 중 최댓값입니다.
 - 데모용 추천입니다. 수익을 과장하지 않습니다."""
 
-FACTS_SYSTEM = """사용자가 투자 추천을 거절하며 남긴 사유에서, 앞으로 추천할 때 반영할 선호나 회피 사실을 1~3개 뽑습니다.
+FACTS_SYSTEM = """사용자가 투자 추천을 승인하거나 거절하며 남긴 이유에서, 앞으로 추천할 때 반영할 선호나 회피 사실을 1~3개 뽑습니다.
 각 사실은 "~을 피함", "~을 선호함" 형태의 짧은 문장(출력 언어)입니다. 사유에 없는 내용은 만들지 않습니다."""
 
 
@@ -345,7 +345,7 @@ EXEC_SYSTEM = """당신은 주문 실행 도우미입니다. 사용자가 고른
 
 
 def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> list[dict]:
-    """결정을 mem9에 기록한다. 거절 사유는 smart ingest로 보내고, 추출되지 않으면 Claude가 대신 추출한다.
+    """결정을 mem9에 기록한다. 승인·거절 이유는 smart ingest로 보내고, 추출되지 않으면 Claude가 대신 추출한다.
 
     순서: 사유 ingest → insight 대기(또는 대체 경로) → 결정 기록(pinned).
     결정 기록에도 사유가 들어가므로, 먼저 저장하면 mem9가 같은 내용으로 보고 추출을 건너뛸 수 있다.
@@ -364,7 +364,7 @@ def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> li
         else:
             facts: ExtractedFacts = structured(ExtractedFacts, effort="low").invoke(
                 [SystemMessage(FACTS_SYSTEM + output_language_rule(lang)),
-                 HumanMessage(f"추천: {card['title']}\n거절 사유: {reason}")])
+                 HumanMessage(f"추천: {card['title']}\n{'승인 이유' if approve else '거절 사유'}: {reason}")])
             for fact in facts.facts[:3]:
                 m = mem9.add_pinned(app_id, fact, tags=["insight-fallback"])
                 events.append({"kind": "fallback", "content": fact, "id": m.get("id")})
@@ -375,7 +375,8 @@ def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> li
             f" (reason: {reason})" if reason else "")
     else:
         verb = "승인" if approve else "거절"
-        text = f"{date.today().isoformat()} {card['title']} 추천을 {verb}함" + (f" (사유: {reason})" if reason else "")
+        label = "이유" if approve else "사유"
+        text = f"{date.today().isoformat()} {card['title']} 추천을 {verb}함" + (f" ({label}: {reason})" if reason else "")
     saved = mem9.add_pinned(app_id, text, tags=["decision"],
                             metadata={"recommendation_id": str(card["recommendation_id"])})
     return [{"kind": "decision", "content": text, "id": saved.get("id")}] + events
@@ -453,7 +454,9 @@ def execute_order(
          if state.get("lang") == "en" else
          f"{date.today().isoformat()} {card['title']} 실행 완료: {first['amount']:g} {first['from_asset']} ({first['chain']})"),
         tags=["execution"], metadata={"tx_hash": order["tx_hash"]})
-    return reply(f"승인되어 체결되었습니다. 주문 {order['order_id']}, 상태 {order['status']}, tx {order['tx_hash'][:18]}…",
+    remembered = " 사용자가 남긴 승인 이유는 장기 기억에 기록했습니다." if reason else ""
+    return reply(f"승인되어 체결되었습니다. 주문 {order['order_id']}, 상태 {order['status']}, "
+                 f"tx {order['tx_hash'][:18]}….{remembered}",
                  outcome="approved", command=command, order=order, memory_events=events)
 
 

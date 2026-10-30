@@ -469,7 +469,8 @@ LIMIT 10;
 | 온보딩 (명시적 선호) | `content` + `memory_type: pinned`, `tags: ["preference"]` | "레버리지·파생상품은 원하지 않음", "주 거래소는 Upbit와 Uniswap" |
 | 추천 승인/거절 — 결정 | `content` + `pinned`, `tags: ["decision"]` | "2026-10-29 ETH-USDC LP(Uniswap, 예상 APY 18%) 추천을 거절함" |
 | 추천 거절 — 사유 | `messages`(**사용자 발화만**) + `mode: smart` (비동기) | 사용자: "변동성이 큰 상품은 부담스러워요. 비영구적 손실도 걱정돼요." → mem9가 "Rejects investment products with high volatility" 등 `insight`로 정리 |
-| 사유 추출 실패 시 (대체 경로) | Claude로 사실 추출 → `content` + `pinned`, `tags: ["insight-fallback"]` | 30초 안에 새 `insight`가 없을 때만 |
+| 추천 승인 — 고른 이유 (선택 입력) | 거절 사유와 같은 방식 | 사용자: "언제든 인출할 수 있는 안정적인 이자 수익이 좋아요." → "Prefers stable interest income that can be withdrawn at any time" (2026-10-30 확인) |
+| 이유 추출 실패 시 (대체 경로) | Claude로 사실 추출 → `content` + `pinned`, `tags: ["insight-fallback"]` | 15초 안에 새 `insight`가 없을 때만 |
 | 실행 완료 | `content` + `pinned`, `tags: ["execution"]` | "2026-10-29 USDC 1,000을 Aave(Arbitrum)에 예치 승인·실행" |
 
 - 거절 사유에 추천 문장(assistant 메시지)을 함께 보내지 않는 이유: 한국어 추천 문장이 섞이면 추출이 일어나지 않았습니다(1.2 확인 결과). 어떤 상품을 거절했는지는 결정 기록과 `recommendations` 테이블로 남깁니다.
@@ -484,7 +485,7 @@ LIMIT 10;
 4. 사용자당 기억이 수십 건을 넘는 운영 규모가 되면, 기억 선별을 Claude에 맡기거나 mem9 의미 검색 지원 여부를 다시 확인합니다.
 5. **화면 표시 (② 대시보드의 Agent 기억)**: 기억을 생긴 곳에 따라 세 칸으로 나눠 보여줍니다(`ui/common.memory_source`). 추천에 쓰는 기억은 나누지 않고 전부 씁니다.
    - **가입 시 선호**: 태그 `preference` (작업 공간을 만들거나 초기화할 때 기록)
-   - **대화에서 배운 기억**: `insight`(mem9 추출) 또는 태그 `insight-fallback`(Claude 대체 추출). 비어 있으면 "추천을 거절하고 사유를 입력하면 여기에 생깁니다"라고 안내합니다.
+   - **대화에서 배운 기억**: `insight`(mem9 추출) 또는 태그 `insight-fallback`(Claude 대체 추출). 승인·거절할 때 입력한 이유에서 생깁니다. 비어 있으면 "이유를 입력하면 여기에 생깁니다"라고 안내합니다.
    - **결정·실행 기록**: 태그 `decision`, `execution` (비어 있으면 숨김)
    - 이 영역만 반투명 보라 배경으로 표시해 TiDB 표와 구분합니다. Streamlit 컨테이너에 배경색 옵션이 없어 `st-key-agent_memory` 클래스에만 CSS를 줍니다.
 

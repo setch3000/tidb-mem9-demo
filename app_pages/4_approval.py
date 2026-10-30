@@ -57,10 +57,12 @@ for thread_id, snap, approval in orders:
 
         approve_col, reject_col = st.columns(2)
         with approve_col:
-            if st.button(t("p4.approve"), key=f"approve_{thread_id}", type="primary", icon=":material/check:"):
-                decide_order(thread_id, {"action": "approve"})
-                st.session_state["last_decision"] = thread_id
-                st.rerun()
+            with st.form(key=f"approve_{thread_id}", border=False):
+                why = st.text_input(t("p4.approve_reason"), placeholder=t("p4.approve_reason_ph"))
+                if st.form_submit_button(t("p4.approve"), type="primary", icon=":material/check:"):
+                    decide_order(thread_id, {"action": "approve", "reason": why})
+                    st.session_state["last_decision"] = thread_id
+                    st.rerun()
         with reject_col:
             with st.form(key=f"reject_{thread_id}", border=False):
                 reason = st.text_input(t("p4.reason"), placeholder=t("p4.reason_ph"))

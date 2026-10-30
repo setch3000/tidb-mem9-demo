@@ -38,6 +38,10 @@ from core.workspace import ensure_workspace, reset_workspace, workspace_id  # no
 
 WORKSPACE = workspace_id("scenario@localhost")
 
+APPROVE_REASON = {
+    "ko": "언제든 인출할 수 있는 안정적인 이자 수익이 좋아요.",
+    "en": "I like steady interest that I can withdraw anytime.",
+}
 REJECT_REASON = {
     "ko": "변동성이 큰 상품은 부담스러워요. 비영구적 손실도 걱정돼요.",
     "en": "Volatile products make me uneasy. I am also worried about impermanent loss.",
@@ -154,7 +158,9 @@ def main() -> int:
     approval = request_execution(thread2, top)
     if approval is None:
         return 1
-    s2 = decide(thread2, {"action": "approve"})
+    s2 = decide(thread2, {"action": "approve", "reason": APPROVE_REASON[args.lang]})
+    learned = [e for e in s2.get("memory_events", []) if e["kind"] in ("insight", "fallback")]
+    print(f"  (참고) 승인 이유에서 배운 기억 {len(learned)}개")
     order = s2.get("order", {})
     print(f"  주문 {order.get('order_id')} → {order.get('status')} tx={str(order.get('tx_hash'))[:18]}…")
     checks["승인 후 CONFIRMED"] = order.get("status") == "CONFIRMED"
