@@ -177,9 +177,9 @@ T: dict[str, tuple[str, str]] = {
     "col.llm_actions": ("LLM 사용", "LLM actions"),
 
     # ① Signal 분석
-    "p1.intro": ("인플루언서 게시물과 DeFi·거래소 공지 원문을 Claude가 읽고, 실행할 수 있는 투자 기회로 구조화합니다. "
+    "p1.intro": ("인플루언서 게시물과 DeFi·거래소 공지 원문을 AI Agent가 읽고, 실행할 수 있는 투자 기회로 구조화합니다. "
                  "경고·논평처럼 기회가 없는 글은 걸러내고, 같은 기회를 다룬 글은 하나로 합칩니다.",
-                 "Claude reads influencer posts and DeFi or exchange announcements and turns them into "
+                 "An AI agent reads influencer posts and DeFi or exchange announcements and turns them into "
                  "actionable investment opportunities. Posts without an opportunity, such as warnings or "
                  "commentary, are filtered out, and posts about the same opportunity are merged."),
     "p1.metric_signals": ("원문", "Signals"),
