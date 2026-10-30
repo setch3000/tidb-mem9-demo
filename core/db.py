@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import threading
 import time
-from collections import deque
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from functools import lru_cache
@@ -18,6 +17,8 @@ from typing import Any, TypeVar
 
 import certifi
 import pymysql
+
+from core.call_log import CallLog
 
 from core.config import get_settings
 
@@ -46,7 +47,7 @@ class Database:
         self._connect = connect_fn or (lambda: connect(autocommit=True))
         self._conn: pymysql.connections.Connection | None = None
         self._lock = threading.RLock()
-        self.log: deque[dict[str, Any]] = deque(maxlen=200)  # SQL Inspector용
+        self.log = CallLog(maxlen=200)   # SQL Inspector용 (작업 공간별)
 
     def run(self, fn: Callable[[Any], T], *, transaction: bool = False) -> T:
         """커서를 받아 작업하는 함수를 실행한다. 로그는 남기지 않는다 (체크포인터 내부 SQL 등)."""

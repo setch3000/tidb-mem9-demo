@@ -13,7 +13,7 @@ if absent := missing():
     st.error(t("err.env_missing", keys=", ".join(absent)))
     st.stop()
 
-from core import audit  # noqa: E402  (환경변수 확인 뒤 DB 연결)
+from core import audit, call_log  # noqa: E402  (환경변수 확인 뒤 DB 연결)
 from core.workspace import ensure_workspace, reset_workspace  # noqa: E402
 from ui.common import current_user_id, current_workspace, persona_name, users  # noqa: E402
 
@@ -48,6 +48,7 @@ if not audit.is_logged_in():
 audit.log_once("login")
 is_admin = audit.is_admin()
 workspace = current_workspace()
+call_log.current_workspace.set(workspace)   # 이 실행의 SQL·mem9 호출을 내 작업 공간 기록에 남긴다
 with st.spinner(t("ws.preparing")):     # 처음 쓰는 작업 공간만 mem9 기억을 준비한다 (몇 초)
     ensure_workspace(workspace)
 

@@ -6,7 +6,7 @@ import streamlit as st
 from core import workflow
 from core.db import get_db
 from core.mem9_client import get_mem9
-from ui.common import current_user_id, latest_thread, localized
+from ui.common import current_user_id, current_workspace, latest_thread, localized
 from ui.i18n import ARCHITECTURE, label, lang, t
 
 MERMAID_JS = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"
@@ -31,7 +31,7 @@ if tab_sql.open:
     with tab_sql:
         st.caption(t("p5.sql_caption"))
         only_hybrid = st.toggle(t("p5.only_hybrid"))
-        entries = [e for e in reversed(db.log) if not only_hybrid or "하이브리드" in e["label"]]
+        entries = [e for e in db.log.recent(current_workspace()) if not only_hybrid or "하이브리드" in e["label"]]
         for e in entries[:60]:
             rows = t("p5.rows", n=e.get("rows", "-"))
             title = f"{e['at']} · {label(e['label']) or 'SQL'} · {e['ms']}ms · {rows}"
@@ -44,7 +44,7 @@ if tab_sql.open:
 
 if tab_mem9.open:
     with tab_mem9:
-        calls = list(reversed(get_mem9().calls))
+        calls = get_mem9().calls.recent(current_workspace())
         st.caption(t("p5.mem9_caption", n=len(calls)))
         if not calls:
             st.info(t("p5.mem9_empty"))

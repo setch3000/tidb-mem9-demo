@@ -642,6 +642,8 @@ class ExecutionCommand(BaseModel):
   - LangGraph 체크포인트: 스레드 ID가 `rec_<작업 공간>_…`로 시작합니다.
   - mem9 기억: `appId = "<작업 공간>_user_<id>"`
 - **모두가 같이 쓰는 것**: 사용자 A·B·C의 프로필·보유 자산·계정·해외 잔고 이력, 원문, 프로토콜 목록(시드 데이터. 주문은 Mock이라 바뀌지 않음), 번역 캐시, 접속 기록
+- **Behind the scenes 호출 기록**: SQL Inspector와 mem9 호출 기록도 작업 공간마다 따로 쌓습니다([core/call_log.py](../core/call_log.py)). DB 연결과 mem9 클라이언트는 서버 전체가 하나를 같이 쓰므로, `app.py`가 실행마다 현재 작업 공간을 `ContextVar`에 넣고 기록할 때 그 값을 붙입니다. LangGraph 노드가 다른 스레드에서 돌아도 이 값이 전달됩니다. 작업 공간마다 최근 200건씩 서버 메모리에 두며, 앱을 재시작하면 비워집니다.
+- **격리 수준**: 애플리케이션 레벨의 논리적 격리입니다. TiDB는 같은 DB·같은 표에서 `workspace` 조건으로, mem9는 같은 API 키에서 `appId`로 나눕니다. 작업 공간 ID는 서버가 로그인 계정으로 계산하므로 방문자가 바꿀 수 없습니다. 더 강한 격리가 필요하면 작업 공간별 데이터베이스나 mem9 API 키를 쓸 수 있습니다.
 - **처음 접속**: 작업 공간이 없으면 mem9에 세 사용자의 온보딩 기억을 기록하고 시작합니다(약 10초, "작업 공간을 준비하는 중" 표시).
 - **하이브리드 검색**: `WHERE o.workspace = %(ws)s`가 관계형 조건에 하나 더 붙습니다. 벡터 검색과 같은 SQL 안에서 처리됩니다.
 - **검증 (2026-10-30)**
@@ -801,6 +803,7 @@ tidb-mem9-demo/
 │   ├── config.py               # 환경변수 로드 (.env / Streamlit Secrets), 누락 키 확인
 │   ├── db.py                   # TiDB 연결 (PyMySQL, TLS), 공유 연결 Database, SQL 로그 기록
 │   ├── mem9_client.py          # mem9 REST 클라이언트 (httpx), 호출 로그 기록
+│   ├── call_log.py             # Behind the scenes 호출 기록 (작업 공간별, ContextVar)
 │   ├── workspace.py            # 방문자별 작업 공간: 생성(mem9 온보딩 기억), 자기 작업 공간 초기화
 │   ├── llm.py                  # ChatAnthropic 생성, Structured Output, 모델 설정 (필요 시 anthropic SDK 대체)
 │   ├── schemas.py              # Pydantic 모델 (Opportunity, ExecutionCommand 등)
@@ -886,7 +889,7 @@ tidb-mem9-demo/
 | 실행 agent가 잘못된 주문 인자 생성 | tool 안에서 추천 검증과 같은 `step_errors`로 검증하고 오류를 agent에 돌려줌 (최대 3회), 병렬 tool 호출 금지 |
 | LangChain이 최신 Claude 기능(네이티브 structured output, `effort`, prompt caching)을 지원하지 않거나 늦게 반영 | 1단계에서 확인, 미지원 기능은 `core/llm.py` 안에서 해당 호출만 `anthropic` SDK로 처리 |
 | 병렬 분석 시 API 속도 제한 | `max_concurrency`로 동시 실행 수 제한 + 노드 `RetryPolicy` |
-| 여러 방문자가 동시에 사용 | Google 계정마다 작업 공간을 따로 둠(6.3절). 분석 결과·추천·기억·초기화가 서로 섞이지 않음. 서버 메모리에 있는 SQL Inspector·mem9 호출 기록만 모두가 함께 봄 |
+| 여러 방문자가 동시에 사용 | Google 계정마다 작업 공간을 따로 둠(6.3절). 분석 결과·추천·기억·초기화·Behind the scenes 호출 기록이 서로 섞이지 않음 |
 | 로그인한 누구나 LLM을 호출 | 상한 없이 모든 LLM 사용을 계정·IP와 함께 기록, 관리자 화면에서 확인 (결정 사항) |
 | 규제·오해 | 모든 화면에 "정보 제공용, 투자·세무 자문 아님, 실행은 시뮬레이션, 합성 데이터" 고지. 개인 맞춤 추천의 규제 검토는 실서비스 전 별도 진행 (0.1절) |
 | 연동할 엔진이 거래소 API인지 온체인인지에 따라 구조가 달라짐 | 엔진 tool이 두 경로를 모두 받도록 만들어, 어느 쪽이어도 같은 구조로 붙임 |

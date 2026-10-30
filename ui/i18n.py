@@ -354,16 +354,16 @@ T: dict[str, tuple[str, str]] = {
     "p5.tab_mem9": ("mem9 호출", "mem9 calls"),
     "p5.tab_graph": ("LangGraph", "LangGraph"),
     "p5.tab_arch": ("아키텍처", "Architecture"),
-    "p5.sql_caption": ("이 앱이 TiDB에 보낸 SQL (최근 200개, 최신순). 벡터 검색과 관계형 조건이 한 SQL에 들어간 "
+    "p5.sql_caption": ("내 작업 공간에서 TiDB에 보낸 SQL (최근 200개, 최신순). 벡터 검색과 관계형 조건이 한 SQL에 들어간 "
                        "'추천: 하이브리드 검색'이 핵심입니다. 체크포인터 내부 SQL은 포함하지 않습니다.",
-                       "SQL this app sent to TiDB (latest 200, newest first). The key query is "
+                       "SQL sent to TiDB from your workspace (latest 200, newest first). The key query is "
                        "'Recommend: hybrid search', which combines vector search and relational filters in one "
                        "SQL. Checkpointer SQL is not included."),
     "p5.only_hybrid": ("하이브리드 검색만 보기", "Show hybrid search only"),
     "p5.rows": ("{n}행", "{n} rows"),
-    "p5.mem9_caption": ("mem9 REST API 호출 {n}건 (최신순). 추천할 때는 사용자 기억 전체를 목록으로 가져오고, "
+    "p5.mem9_caption": ("내 작업 공간의 mem9 REST API 호출 {n}건 (최신순). 추천할 때는 사용자 기억 전체를 목록으로 가져오고, "
                         "거절 사유는 smart ingest(messages + mode=smart)로 보냅니다.",
-                        "{n} mem9 REST API calls (newest first). Recommendations load the user's full memory "
+                        "{n} mem9 REST API calls from your workspace (newest first). Recommendations load the user's full memory "
                         "list, and rejection reasons are sent with smart ingest (messages + mode=smart)."),
     "p5.mem9_empty": ("아직 호출이 없습니다. 이 기록은 서버 메모리에 있어 앱이 재시작(배포)되면 비워집니다. "
                       "사용자 대시보드를 열거나 추천을 받으면 호출이 쌓입니다.",

@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 
+from core.call_log import CallLog
 from core.config import get_settings
 
 MEMORIES = "/v1alpha2/mem9s/memories"
@@ -34,7 +35,7 @@ class Mem9Client:
             headers={"X-API-Key": api_key or s.mem9_api_key},
             timeout=timeout,
         )
-        self.calls: list[dict[str, Any]] = []  # Behind the scenes 화면용 호출 로그
+        self.calls = CallLog(maxlen=200)   # Behind the scenes 화면용 호출 로그 (작업 공간별)
 
     def _request(self, method: str, path: str, **kwargs) -> Any:
         start = time.perf_counter()
