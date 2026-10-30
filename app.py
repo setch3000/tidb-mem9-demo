@@ -77,7 +77,11 @@ with st.sidebar:
         t("side.persona"), ids, index=ids.index(current_user_id()) if current_user_id() in ids else 0,
         format_func=names.get)
 
-    with st.popover(t("side.reset"), icon=":material/restart_alt:"):
+    # 초기화가 끝난 다음 실행: 팝오버를 닫고 완료 알림을 띄운다 (위젯 상태는 위젯을 그리기 전에만 바꿀 수 있다)
+    if st.session_state.pop("_reset_done", False):
+        st.session_state["reset_popover"] = False
+        st.toast(t("side.reset_done"), icon=":material/check_circle:")
+    with st.popover(t("side.reset"), icon=":material/restart_alt:", key="reset_popover", on_change="rerun"):
         st.write(t("side.reset_body"))
         # 누른 뒤 다시 그릴 때 버튼을 비활성화하고 그 실행에서 초기화한다 (중복 클릭 방지)
         resetting = st.session_state.get("_resetting", False)
@@ -96,9 +100,9 @@ with st.sidebar:
                 finally:
                     lock.release()
                 for key in list(st.session_state):
-                    if key not in ("user_id", "lang") and not key.startswith("_audit"):
+                    if key not in ("user_id", "lang", "reset_popover") and not key.startswith("_audit"):
                         del st.session_state[key]
-                st.success(t("side.reset_done"))
+                st.session_state["_reset_done"] = True
                 st.rerun()
 
     st.divider()
