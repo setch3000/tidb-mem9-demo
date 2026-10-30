@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 LANGS = ("ko", "en")
-# 토글 선택지 = URL 값. bind="query-params"는 선택지 값을 URL에 넣으므로 공유 링크는 ?lang=English
+# 토글 선택지 = URL 값. 공유 링크는 ?lang=English
 OPTIONS = {"한국어": "ko", "English": "en"}
 OPTION_OF = {v: k for k, v in OPTIONS.items()}
 
@@ -31,8 +31,13 @@ def lang() -> str:
 
 
 def lang_toggle() -> None:
-    st.segmented_control("언어 / Language", list(OPTIONS), default=OPTION_OF[default_lang()], required=True,
-                         key="lang", bind="query-params")
+    # bind="query-params"를 쓰면 URL의 lang을 지울 수 없어 st.switch_page가 실패한다.
+    # 그래서 처음 들어올 때 URL 값으로 시작하고, 이후에는 선택 값을 URL에 직접 맞춰 둔다.
+    if st.session_state.get("lang") not in OPTIONS:
+        st.session_state["lang"] = OPTION_OF[lang()]
+    st.segmented_control("언어 / Language", list(OPTIONS), required=True, key="lang")
+    if st.query_params.get("lang") != st.session_state["lang"]:
+        st.query_params["lang"] = st.session_state["lang"]
 
 
 def t(key: str, **fmt) -> str:
