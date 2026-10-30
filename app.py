@@ -14,14 +14,20 @@ if absent := missing():
     st.stop()
 
 from core import audit  # noqa: E402  (환경변수 확인 뒤 DB 연결)
-from ui.common import current_user_id, persona_name, users  # noqa: E402
-
+from core.workspace import ensure_workspace, reset_workspace  # noqa: E402
+from ui.common import current_user_id, current_workspace, persona_name, users  # noqa: E402
 
 
 @st.cache_resource
-def reset_lock() -> threading.Lock:
-    """서버 전체에서 초기화가 한 번에 하나만 돌게 한다 (모든 접속자가 같은 데이터를 쓰므로)."""
-    return threading.Lock()
+def _reset_locks() -> tuple[threading.Lock, dict[str, threading.Lock]]:
+    return threading.Lock(), {}
+
+
+def reset_lock(workspace: str) -> threading.Lock:
+    """작업 공간마다 초기화가 한 번에 하나만 돌게 한다 (같은 계정으로 두 창에서 눌러도 한 번만)."""
+    guard, locks = _reset_locks()
+    with guard:
+        return locks.setdefault(workspace, threading.Lock())
 
 
 # ---- 로그인 게이트 ----
@@ -41,6 +47,9 @@ if not audit.is_logged_in():
 
 audit.log_once("login")
 is_admin = audit.is_admin()
+workspace = current_workspace()
+with st.spinner(t("ws.preparing")):     # 처음 쓰는 작업 공간만 mem9 기억을 준비한다 (몇 초)
+    ensure_workspace(workspace)
 
 PAGES = [
     st.Page("app_pages/1_signal_analysis.py", title=t("nav.signal"), icon=":material/feed:", default=True),
@@ -67,35 +76,32 @@ with st.sidebar:
         t("side.persona"), ids, index=ids.index(current_user_id()) if current_user_id() in ids else 0,
         format_func=names.get)
 
-    if is_admin:
-        with st.popover(t("side.reset"), icon=":material/restart_alt:"):
-            st.write(t("side.reset_body"))
-            # 누른 뒤 다시 그릴 때 버튼을 비활성화하고 그 실행에서 초기화한다 (중복 클릭 방지)
-            resetting = st.session_state.get("_resetting", False)
-            st.button(t("side.reset_run"), type="primary", disabled=resetting,
-                      on_click=lambda: st.session_state.update(_resetting=True))
-            if resetting:
-                lock = reset_lock()
-                if not lock.acquire(blocking=False):   # 다른 관리자가 이미 초기화 중
-                    st.session_state.pop("_resetting", None)
-                    st.warning(t("side.reset_busy"))
-                else:
-                    try:
-                        from scripts.seed import reset_demo
-
-                        audit.log_event("admin:reset")
-                        with st.spinner(t("side.reset_spinner")):
-                            reset_demo()
-                    finally:
-                        lock.release()
-                    st.cache_data.clear()
-                    for key in list(st.session_state):
-                        if key not in ("user_id", "lang") and not key.startswith("_audit"):
-                            del st.session_state[key]
-                    st.success(t("side.reset_done"))
-                    st.rerun()
+    with st.popover(t("side.reset"), icon=":material/restart_alt:"):
+        st.write(t("side.reset_body"))
+        # 누른 뒤 다시 그릴 때 버튼을 비활성화하고 그 실행에서 초기화한다 (중복 클릭 방지)
+        resetting = st.session_state.get("_resetting", False)
+        st.button(t("side.reset_run"), type="primary", disabled=resetting,
+                  on_click=lambda: st.session_state.update(_resetting=True))
+        if resetting:
+            lock = reset_lock(workspace)
+            if not lock.acquire(blocking=False):   # 같은 계정의 다른 창에서 이미 초기화 중
+                st.session_state.pop("_resetting", None)
+                st.warning(t("side.reset_busy"))
+            else:
+                try:
+                    audit.log_event("reset", {"workspace": workspace})
+                    with st.spinner(t("side.reset_spinner")):
+                        reset_workspace(workspace)
+                finally:
+                    lock.release()
+                for key in list(st.session_state):
+                    if key not in ("user_id", "lang") and not key.startswith("_audit"):
+                        del st.session_state[key]
+                st.success(t("side.reset_done"))
+                st.rerun()
 
     st.divider()
+    st.caption(t("side.workspace", ws=workspace))
     who = audit.identity()
     if audit.auth_bypassed():
         st.caption(t("login.dev_mode", email=who["email"]))

@@ -21,9 +21,9 @@ from core.config import get_settings
 MEMORIES = "/v1alpha2/mem9s/memories"
 
 
-def user_app_id(user_id: int) -> str:
-    """사용자별 기억 공간 (ARCHITECTURE.md 4.1)."""
-    return f"user_{user_id}"
+def user_app_id(user_id: int, workspace: str) -> str:
+    """작업 공간 × 사용자별 기억 공간 (ARCHITECTURE.md 4.1)."""
+    return f"{workspace}_user_{user_id}"
 
 
 class Mem9Client:

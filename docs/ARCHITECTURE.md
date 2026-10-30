@@ -386,9 +386,11 @@ state = graph.invoke(Command(resume={"action": "reject", "reason": reason}), con
 - 그래서 3.3절의 하이브리드 SQL을 바꾸지 않고도 거래소 상품이 같은 조건(보유 위치, 접근 가능 위치, 리스크 한도)으로 걸러집니다.
 - 실행 엔진은 주문 단계의 위치가 거래소 계정이면 거래소 API 경로, 네트워크면 온체인 경로로 처리합니다.
 | `strategies` | id, type(`swap`/`lend`/`stake`/`lp`), action_template(JSON) | 실행 엔진이 이해하는 전략 템플릿 |
-| `raw_signals` | id, source, author, content, posted_at, analyzed | 수집 원문 (임베딩 없음: 의미 검색은 `opportunities`에서만 하므로 초기화 시간을 줄이려고 뺌) |
-| `opportunities` | id, signal_id, title, asset, chain, protocol_id, strategy_id, action_type, expected_apy, risk_level, horizon, confidence, summary, rationale, summary_vec (Auto Embedding), status, created_at | LLM이 구조화한 투자 기회 |
-| `recommendations` | id, user_id, opportunity_id, thread_id, rank, rationale, memory_refs(JSON), command(JSON), model, status(`AWAITING_APPROVAL`/`APPROVED`/`REJECTED`), decided_at, created_at | 추천 이력, LangGraph 스레드 연결 |
+| `raw_signals` | id, source, author, content, posted_at | 수집 원문 (임베딩 없음: 의미 검색은 `opportunities`에서만 하므로 초기화 시간을 줄이려고 뺌) |
+| `workspaces` | id, created_at, reset_at | 방문자별 작업 공간 (Google 계정 이메일의 해시, 이메일은 저장하지 않음). 6.3절 |
+| `analyzed_signals` | workspace, signal_id, analyzed_at | 작업 공간별로 분석을 마친 원문 |
+| `opportunities` | id, workspace, signal_id, title, asset, chain, protocol_id, strategy_id, action_type, expected_apy, risk_level, horizon, confidence, summary, rationale, summary_vec (Auto Embedding), status, created_at | LLM이 구조화한 투자 기회 |
+| `recommendations` | id, workspace, user_id, opportunity_id, thread_id, rank, rationale, memory_refs(JSON), command(JSON), model, status(`AWAITING_APPROVAL`/`APPROVED`/`REJECTED`), decided_at, created_at | 추천 이력, LangGraph 스레드 연결 |
 | `execution_orders` | id, recommendation_id, command(JSON), status(`PENDING`/`SUBMITTED`/`CONFIRMED`/`FAILED`), tx_hash, created_at, updated_at | 실행 명령과 상태 |
 | `access_logs` | id, at, event, email, name, ip·forwarded_for(비워 둠), user_agent, session_id, detail(JSON) | 접속·사용 기록 (로그인, LLM 사용). **데모 초기화로 지우지 않음** |
 | `translations` | src_hash, lang, src, text, created_at | 화면 표시용 번역 캐시. 원문 기준이라 **데모 초기화로 지우지 않음** |
@@ -457,7 +459,7 @@ LIMIT 10;
 
 ### 4.1 기억 격리
 
-- 데모용 API 키 1개를 쓰고, **사용자마다 `appId = "user_<id>"`** 로 기억 공간을 분리합니다.
+- 데모용 API 키 1개를 쓰고, **작업 공간 × 사용자마다 `appId = "<작업 공간>_user_<id>"`** 로 기억 공간을 분리합니다(6.3절). 같은 사용자 A라도 방문자마다 기억이 따로 쌓입니다.
 - 운영 환경에서는 서비스 정책에 맞춰 사용자별 키 또는 `appId` 방식을 선택할 수 있습니다.
 
 ### 4.2 기억을 쓰는 시점
@@ -474,7 +476,7 @@ LIMIT 10;
 
 ### 4.3 기억을 읽는 시점
 
-1. 추천 요청 시 `GET /memories?appId=user_<id>&limit=50`으로 **사용자 기억 전체**를 가져옵니다. `session`(대화 원문)은 제외하고 `pinned`와 `insight`만 씁니다. `q` 검색은 단어 일치 방식이라 쓰지 않습니다.
+1. 추천 요청 시 `GET /memories?appId=<작업 공간>_user_<id>&limit=50`으로 **사용자 기억 전체**를 가져옵니다. `session`(대화 원문)은 제외하고 `pinned`와 `insight`만 씁니다. `q` 검색은 단어 일치 방식이라 쓰지 않습니다.
 2. 반환된 기억을 두 곳에 사용
    - **검색 의도 문장 생성** → TiDB 벡터 검색 질의 (Claude가 기억과 프로필을 보고 한국어 문장 생성)
    - **LLM 프롬프트**에 주입 → 순위 결정과 근거 작성
@@ -573,9 +575,9 @@ class ExecutionCommand(BaseModel):
 | 4 | 승인 & 실행 | 추천에 "실행 요청" → 실행 agent의 `execute_order` tool 호출 표시 → 승인 화면(주문 요약·실행 경로·단계·시뮬레이션, 해외 거래소 주문이면 해외 잔고 정보) → 승인/거절(사유) → Mock 엔진 진행 상태 → agent 결과 요약 | AI agent가 엔진 API를 tool로 호출하고 사람이 승인, 새로고침 후에도 이어지는 승인 |
 | 5 | Behind the scenes | SQL Inspector, mem9 API 호출 로그, LangGraph 그래프와 체크포인트 이력, 아키텍처 다이어그램 | 기술적 신뢰 |
 
-사이드바에 **"데모 초기화"** 버튼(확인 단계 포함)을 두어 시드 데이터, 체크포인트, mem9 기억을 시연 전 상태로 되돌립니다.
-- **범위는 앱 전체입니다.** 모든 방문자가 같은 데이터(사용자 A·B·C, 분석 결과, 추천·주문, 체크포인트, 세 사용자의 mem9 기억)를 쓰므로, 누가 초기화하든 모두에게 적용됩니다. 그래서 관리자만 초기화할 수 있습니다.
-- **중복 실행 방지**: 누르면 초기화가 끝날 때까지 버튼이 비활성화됩니다. 서버 전체에 잠금을 두어, 다른 관리자가 동시에 눌러도 한 번만 실행되고 나중에 누른 쪽에는 "다른 관리자가 초기화하고 있습니다"가 표시됩니다.
+사이드바에 **"데모 초기화"** 버튼(확인 단계 포함)을 두어 **자기 작업 공간만** 시연 전 상태로 되돌립니다(6.3절). 누구나 쓸 수 있고 다른 방문자에게는 영향이 없습니다.
+- **중복 실행 방지**: 누르면 초기화가 끝날 때까지(약 15초) 버튼이 비활성화됩니다. 작업 공간마다 잠금을 두어, 같은 계정으로 두 창에서 눌러도 한 번만 실행됩니다.
+- **전체 초기화**는 관리자 전용 ⑥ 접속 기록 화면 아래에 있습니다. 시드 데이터(`data/`)를 바꾼 뒤에 씁니다.
 
 **구현 메모 (4단계)**
 - **화면 이동**: `st.navigation`으로 5개 화면을 묶습니다. 사이드바(사용자 선택, 초기화, 고지)는 `app.py` 한 곳에서 그립니다. 공통 도구는 [ui/common.py](../ui/common.py)에 있습니다.
@@ -625,9 +627,26 @@ class ExecutionCommand(BaseModel):
   - `ip`, `forwarded_for` 컬럼은 IP를 전달하는 호스팅(예: Google Cloud Run)으로 옮길 때를 위해 남겨 두고 비워 둡니다.
 - **관리자**: `ADMIN_EMAILS`(Secrets, 쉼표 구분)에 든 계정만 다음을 쓸 수 있습니다.
   - **⑥ 접속 기록** 화면: 고유 사용자·로그인·LLM 사용 수(오늘/전체), 이벤트 필터, 최근 500건, 사용자별 집계, CSV 다운로드. 모두 SQL 집계입니다.
-  - **데모 초기화** 버튼
-  - 일반 사용자에게는 두 메뉴가 보이지 않고, ⑥ 화면은 등록조차 되지 않습니다.
+  - **전체 초기화** 버튼 (⑥ 화면 아래). 각자 쓰는 "데모 초기화"는 자기 작업 공간만 되돌립니다.
+  - 일반 사용자에게는 ⑥ 메뉴가 보이지 않고, 화면이 등록조차 되지 않습니다.
 - **LLM 비용**: 상한은 두지 않고 사용 기록만 남깁니다(결정 사항).
+
+### 6.3 방문자별 작업 공간
+
+모든 방문자가 같은 데이터를 쓰면 다른 사람의 추천·거절·기억이 보이고, 초기화도 모두에게 적용됩니다. 그래서 Google 계정마다 **작업 공간**을 따로 둡니다([core/workspace.py](../core/workspace.py)).
+
+- **작업 공간 ID**: 이메일(소문자)의 SHA-256 앞 12자리에 `w`를 붙입니다. 이메일 자체는 저장하지 않습니다.
+- **작업 공간마다 따로 두는 것**
+  - 분석 결과: `opportunities.workspace`, `analyzed_signals`. 각자 "AI 분석 실행"부터 시연합니다(방문자마다 LLM 호출 40건).
+  - 추천·주문 이력: `recommendations.workspace` (주문은 추천을 따라감)
+  - LangGraph 체크포인트: 스레드 ID가 `rec_<작업 공간>_…`로 시작합니다.
+  - mem9 기억: `appId = "<작업 공간>_user_<id>"`
+- **모두가 같이 쓰는 것**: 사용자 A·B·C의 프로필·보유 자산·계정·해외 잔고 이력, 원문, 프로토콜 목록(시드 데이터. 주문은 Mock이라 바뀌지 않음), 번역 캐시, 접속 기록
+- **처음 접속**: 작업 공간이 없으면 mem9에 세 사용자의 온보딩 기억을 기록하고 시작합니다(약 10초, "작업 공간을 준비하는 중" 표시).
+- **하이브리드 검색**: `WHERE o.workspace = %(ws)s`가 관계형 조건에 하나 더 붙습니다. 벡터 검색과 같은 SQL 안에서 처리됩니다.
+- **검증 (2026-10-30)**
+  - `run_scenario.py`는 전용 작업 공간(`scenario@localhost`)에서 실행합니다. ko·en 모두 합격 기준 7개를 통과했습니다.
+  - 브라우저 두 계정으로 확인: 시나리오 계정은 투자 기회 22개, 새 계정은 0개였습니다. 새 계정이 초기화한 뒤에도 시나리오 계정은 22개 그대로였습니다.
 
 ---
 
@@ -782,6 +801,7 @@ tidb-mem9-demo/
 │   ├── config.py               # 환경변수 로드 (.env / Streamlit Secrets), 누락 키 확인
 │   ├── db.py                   # TiDB 연결 (PyMySQL, TLS), 공유 연결 Database, SQL 로그 기록
 │   ├── mem9_client.py          # mem9 REST 클라이언트 (httpx), 호출 로그 기록
+│   ├── workspace.py            # 방문자별 작업 공간: 생성(mem9 온보딩 기억), 자기 작업 공간 초기화
 │   ├── llm.py                  # ChatAnthropic 생성, Structured Output, 모델 설정 (필요 시 anthropic SDK 대체)
 │   ├── schemas.py              # Pydantic 모델 (Opportunity, ExecutionCommand 등)
 │   ├── analyzer.py             # 분석 그래프 노드 함수: 시그널 로드, 분석, 엔티티 매칭, 저장
@@ -866,7 +886,7 @@ tidb-mem9-demo/
 | 실행 agent가 잘못된 주문 인자 생성 | tool 안에서 추천 검증과 같은 `step_errors`로 검증하고 오류를 agent에 돌려줌 (최대 3회), 병렬 tool 호출 금지 |
 | LangChain이 최신 Claude 기능(네이티브 structured output, `effort`, prompt caching)을 지원하지 않거나 늦게 반영 | 1단계에서 확인, 미지원 기능은 `core/llm.py` 안에서 해당 호출만 `anthropic` SDK로 처리 |
 | 병렬 분석 시 API 속도 제한 | `max_concurrency`로 동시 실행 수 제한 + 노드 `RetryPolicy` |
-| 모든 방문자가 같은 시드 사용자 A·B·C를 공유 | 동시에 쓰면 서로의 추천·거절·기억이 보임. 시연은 한 사람이 진행하고, 초기화는 관리자만 할 수 있게 함. 방문자별 분리는 하지 않음(현재 한계) |
+| 여러 방문자가 동시에 사용 | Google 계정마다 작업 공간을 따로 둠(6.3절). 분석 결과·추천·기억·초기화가 서로 섞이지 않음. 서버 메모리에 있는 SQL Inspector·mem9 호출 기록만 모두가 함께 봄 |
 | 로그인한 누구나 LLM을 호출 | 상한 없이 모든 LLM 사용을 계정·IP와 함께 기록, 관리자 화면에서 확인 (결정 사항) |
 | 규제·오해 | 모든 화면에 "정보 제공용, 투자·세무 자문 아님, 실행은 시뮬레이션, 합성 데이터" 고지. 개인 맞춤 추천의 규제 검토는 실서비스 전 별도 진행 (0.1절) |
 | 연동할 엔진이 거래소 API인지 온체인인지에 따라 구조가 달라짐 | 엔진 tool이 두 경로를 모두 받도록 만들어, 어느 쪽이어도 같은 구조로 붙임 |

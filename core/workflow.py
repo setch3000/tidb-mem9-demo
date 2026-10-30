@@ -21,6 +21,7 @@ from langgraph.types import RetryPolicy, Send
 from core import analyzer, recommender
 from core.checkpoint_tidb import TiDBSaver
 from core.db import get_db
+from core.workspace import thread_prefix
 
 LLM_RETRY = RetryPolicy(max_attempts=3)
 ANALYSIS_CONCURRENCY = 8
@@ -29,6 +30,7 @@ ANALYSIS_CONCURRENCY = 8
 # ---- 분석 그래프 ----
 
 class AnalysisState(TypedDict, total=False):
+    workspace: str                    # 방문자별 작업 공간 (core/workspace.py)
     signals: list[dict[str, Any]]
     catalog: dict[str, Any]
     drafts: Annotated[list[dict[str, Any]], operator.add]     # 원문마다 병렬로 쌓임
@@ -57,13 +59,15 @@ def build_analysis_graph():
     return g.compile()
 
 
-def run_analysis(**config) -> AnalysisState:
-    return get_analysis_graph().invoke({}, {"max_concurrency": ANALYSIS_CONCURRENCY, **config})
+def run_analysis(workspace: str, **config) -> AnalysisState:
+    return get_analysis_graph().invoke({"workspace": workspace},
+                                       {"max_concurrency": ANALYSIS_CONCURRENCY, **config})
 
 
 # ---- 추천·승인 그래프 ----
 
 class RecommendState(TypedDict, total=False):
+    workspace: str                    # 방문자별 작업 공간 (core/workspace.py)
     user_id: int
     thread_id: str
     lang: str                         # ko / en: 이 스레드에서 AI가 생성하는 문장의 언어
@@ -120,8 +124,8 @@ def build_recommend_graph(checkpointer):
     return g.compile(checkpointer=checkpointer)
 
 
-def new_thread_id() -> str:
-    return f"rec_{uuid.uuid4().hex[:12]}"
+def new_thread_id(workspace: str) -> str:
+    return f"{thread_prefix(workspace)}{uuid.uuid4().hex[:12]}"
 
 
 def thread_config(thread_id: str) -> dict:

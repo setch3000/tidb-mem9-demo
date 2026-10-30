@@ -5,7 +5,7 @@ import streamlit as st
 
 from core.db import get_db
 from core.engine_mock import route
-from ui.common import current_user, decide_order, localized, thread_snapshot, waiting_threads
+from ui.common import current_user, current_workspace, decide_order, localized, thread_snapshot, waiting_threads
 from ui.i18n import columns, krw, t
 
 user = current_user()
@@ -96,9 +96,9 @@ history = get_db().query(
     FROM recommendations r
     JOIN opportunities o ON o.id = r.opportunity_id
     LEFT JOIN execution_orders e ON e.recommendation_id = r.id
-    WHERE r.user_id = %s AND r.status IN ('APPROVED', 'REJECTED', 'FAILED')
+    WHERE r.workspace = %s AND r.user_id = %s AND r.status IN ('APPROVED', 'REJECTED', 'FAILED')
     ORDER BY r.decided_at DESC LIMIT 10
-    """, (uid,), label="승인: 결정 이력")
+    """, (current_workspace(), uid), label="승인: 결정 이력")
 if history:
     st.markdown(t("p4.history"))
     titles = localized([h["title"] for h in history])

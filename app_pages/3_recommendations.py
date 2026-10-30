@@ -2,7 +2,7 @@
 import streamlit as st
 
 from core.db import get_db
-from ui.common import (PAGE_APPROVAL, current_user, latest_thread, localize_cards, localized, memory_lines,
+from ui.common import (PAGE_APPROVAL, current_user, current_workspace, latest_thread, localize_cards, localized, memory_lines,
                        pending, persona_name, render_card, request_execution, start_recommendation,
                        thread_snapshot, waiting_threads)
 from ui.i18n import columns, t
@@ -10,8 +10,8 @@ from ui.i18n import columns, t
 user = current_user()
 uid = user["id"]
 
-opp_count = get_db().query("SELECT COUNT(*) AS n FROM opportunities WHERE status = 'ACTIVE'",
-                           label="화면: 기회 수")[0]["n"]
+opp_count = get_db().query("SELECT COUNT(*) AS n FROM opportunities WHERE workspace = %s AND status = 'ACTIVE'",
+                           (current_workspace(),), label="화면: 기회 수")[0]["n"]
 if not opp_count:
     st.warning(t("p3.no_opps"))
     st.stop()

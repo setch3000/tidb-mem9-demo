@@ -56,8 +56,9 @@ def catalog_prompt(catalog: dict[str, Any]) -> str:
 def load_signals(state: dict) -> dict:
     db = get_db()
     signals = db.query(
-        "SELECT id, source, author, content, posted_at FROM raw_signals WHERE analyzed = FALSE ORDER BY id",
-        label="분석: 미분석 원문 조회")
+        """SELECT id, source, author, content, posted_at FROM raw_signals
+           WHERE id NOT IN (SELECT signal_id FROM analyzed_signals WHERE workspace = %s) ORDER BY id""",
+        (state["workspace"],), label="분석: 미분석 원문 조회")
     for s in signals:
         s["posted_at"] = str(s["posted_at"])
     return {"signals": signals, "catalog": load_catalog(db)}
@@ -122,24 +123,17 @@ def save_opportunities(state: dict) -> dict:
         db.executemany(
             """
             INSERT INTO opportunities
-              (signal_id, title, asset, chain, protocol_id, strategy_id, action_type,
+              (workspace, signal_id, title, asset, chain, protocol_id, strategy_id, action_type,
                expected_apy, risk_level, horizon, confidence, summary, rationale)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            [(o["signal_id"], o["title"][:128], o["asset"], o["chain"], o["protocol_id"], o["strategy_id"],
+            [(state["workspace"], o["signal_id"], o["title"][:128], o["asset"], o["chain"], o["protocol_id"], o["strategy_id"],
               o["action_type"], o["expected_apy"], o["risk_level"], o["horizon"], o["confidence"],
               o["summary"], o["rationale"]) for o in opps],
             label="분석: 기회 저장 (summary 자동 임베딩)")
     ids = [s["id"] for s in state.get("signals", [])]
     if ids:
-        db.execute(
-            f"UPDATE raw_signals SET analyzed = TRUE WHERE id IN ({', '.join(['%s'] * len(ids))})",
-            ids, label="분석: 원문 처리 표시")
+        db.executemany("INSERT IGNORE INTO analyzed_signals (workspace, signal_id) VALUES (%s, %s)",
+                       [(state["workspace"], i) for i in ids], label="분석: 원문 처리 표시")
     return {"saved": len(opps)}
 
-
-def reset_analysis(db: Database | None = None) -> None:
-    """분석 결과를 지우고 원문을 미분석 상태로 되돌린다 (다시 분석하기)."""
-    db = db or get_db()
-    db.execute("DELETE FROM opportunities", label="분석: 초기화")
-    db.execute("UPDATE raw_signals SET analyzed = FALSE", label="분석: 초기화")

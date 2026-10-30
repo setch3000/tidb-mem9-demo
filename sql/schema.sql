@@ -92,13 +92,29 @@ CREATE TABLE IF NOT EXISTS raw_signals (
   source    VARCHAR(32)   NOT NULL,              -- x / telegram / blog / youtube / announcement
   author    VARCHAR(64)   NOT NULL,
   content   VARCHAR(2000) NOT NULL,
-  posted_at DATETIME      NOT NULL,
-  analyzed  BOOLEAN       NOT NULL DEFAULT FALSE
+  posted_at DATETIME      NOT NULL
+);
+
+-- 방문자별 작업 공간 (Google 계정 이메일의 해시. 이메일 자체는 저장하지 않음)
+-- 분석 결과·추천·체크포인트·mem9 기억을 작업 공간마다 따로 두어, 초기화도 각자 한다
+CREATE TABLE IF NOT EXISTS workspaces (
+  id         VARCHAR(16) PRIMARY KEY,
+  created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+  reset_at   TIMESTAMP   NULL
+);
+
+-- 작업 공간별로 분석을 마친 원문
+CREATE TABLE IF NOT EXISTS analyzed_signals (
+  workspace   VARCHAR(16) NOT NULL,
+  signal_id   INT         NOT NULL,
+  analyzed_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (workspace, signal_id)
 );
 
 -- LLM이 구조화한 투자 기회 (summary를 DB가 자동 임베딩)
 CREATE TABLE IF NOT EXISTS opportunities (
   id           BIGINT PRIMARY KEY AUTO_RANDOM,
+  workspace    VARCHAR(16)  NOT NULL,
   signal_id    INT          NOT NULL,
   title        VARCHAR(128) NOT NULL,
   asset        VARCHAR(16)  NOT NULL,
@@ -119,6 +135,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
                  summary,
                  '{"input_type": "search_document", "input_type@search": "search_query"}'
                )) STORED,
+  KEY idx_opp_ws (workspace, status),
   KEY idx_opp_signal (signal_id),
   VECTOR INDEX idx_opp_vec ((VEC_COSINE_DISTANCE(summary_vec)))
 );
@@ -126,6 +143,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
 -- 추천 이력 (LangGraph 스레드와 연결)
 CREATE TABLE IF NOT EXISTS recommendations (
   id             BIGINT PRIMARY KEY AUTO_RANDOM,
+  workspace      VARCHAR(16)  NOT NULL,
   user_id        INT          NOT NULL,
   opportunity_id BIGINT       NOT NULL,
   thread_id      VARCHAR(64)  NOT NULL,
@@ -137,7 +155,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
   status         VARCHAR(24)  NOT NULL DEFAULT 'AWAITING_APPROVAL',  -- / APPROVED / REJECTED
   decided_at     TIMESTAMP    NULL,
   created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_rec_user_status (user_id, status),
+  KEY idx_rec_ws_user_status (workspace, user_id, status),
   KEY idx_rec_thread (thread_id)
 );
 

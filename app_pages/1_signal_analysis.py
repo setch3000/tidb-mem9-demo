@@ -3,16 +3,20 @@ import time
 
 import streamlit as st
 
-from core import analyzer, workflow
+from core import workflow
 from core.audit import log_event
 from core.db import get_db
-from ui.common import localized, prepare_translations
+from core.workspace import clear_analysis
+from ui.common import current_workspace, localized, prepare_translations
 from ui.i18n import columns, t
 
 db = get_db()
+workspace = current_workspace()
 signals = db.query(
-    "SELECT id, source, author, posted_at, content, analyzed FROM raw_signals ORDER BY id",
-    label="화면: 원문 목록")
+    """SELECT s.id, s.source, s.author, s.posted_at, s.content, a.signal_id IS NOT NULL AS analyzed
+       FROM raw_signals s LEFT JOIN analyzed_signals a ON a.signal_id = s.id AND a.workspace = %s
+       ORDER BY s.id""",
+    (workspace,), label="화면: 원문 목록")
 todo = [s for s in signals if not s["analyzed"]]
 
 st.write(t("p1.intro"))
@@ -22,7 +26,7 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
     st.metric(t("p1.metric_todo"), t("p1.count", n=len(todo)), border=True)
     run = st.button(t("p1.run", n=len(todo)), type="primary", disabled=not todo, icon=":material/play_arrow:")
     if st.button(t("p1.rerun"), disabled=bool(todo), icon=":material/refresh:"):
-        analyzer.reset_analysis(db)
+        clear_analysis(workspace, db)
         st.session_state.pop("analysis_result", None)
         st.rerun()
 
@@ -31,7 +35,7 @@ if run:
     progress = st.progress(0.0, text=t("p1.progress_start"))
     done, skipped, start = 0, [], time.perf_counter()
     for update in workflow.get_analysis_graph().stream(
-            {}, {"max_concurrency": workflow.ANALYSIS_CONCURRENCY}, stream_mode="updates"):
+            {"workspace": workspace}, {"max_concurrency": workflow.ANALYSIS_CONCURRENCY}, stream_mode="updates"):
         for node, value in update.items():
             if node == "analyze_signal":
                 done += 1
@@ -43,7 +47,8 @@ if run:
                 progress.progress(1.0, text=t("p1.progress_done", n=value["saved"],
                                               s=f"{time.perf_counter() - start:.0f}"))
     progress.progress(1.0, text=t("p1.progress_translate"))
-    saved = db.query("SELECT title, summary FROM opportunities", label="화면: 번역 준비")
+    saved = db.query("SELECT title, summary FROM opportunities WHERE workspace = %s", (workspace,),
+                     label="화면: 번역 준비")
     prepare_translations([x for o in saved for x in (o["title"], o["summary"])])
     st.session_state["analysis_result"] = {"skipped": skipped}
     st.rerun()
@@ -53,8 +58,9 @@ opportunities = db.query(
     SELECT o.signal_id AS `signal`, o.title AS opportunity, o.asset, o.chain AS location, p.name AS protocol,
            o.action_type AS type, o.expected_apy AS apy, o.risk_level AS risk, o.confidence, o.summary
     FROM opportunities o JOIN protocols p ON p.id = o.protocol_id
+    WHERE o.workspace = %s
     ORDER BY o.risk_level, o.expected_apy DESC
-    """, label="화면: 투자 기회 목록")
+    """, (workspace,), label="화면: 투자 기회 목록")
 
 # 원문(입력) → 투자 기회(결과) 순서. 분석 전에는 원문, 분석 후에는 결과 탭을 먼저 보여준다
 raw_label, opp_label = t("p1.tab_raw", n=len(signals)), t("p1.tab_opps", n=len(opportunities))

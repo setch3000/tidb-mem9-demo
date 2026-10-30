@@ -6,7 +6,7 @@
   1) 로그인 설정([auth])이 없고 DEMO_AUTH=off도 아니면 앱이 열리지 않는다
   2) 사용자 3명 × 화면 6개 × 언어 2개 렌더링 시 예외가 없다
   3) 영어 모드에서 화면 문구에 한글이 없다 (mem9 원문 보기·코드 블록·표 내용은 제외)
-  4) 관리자에게만 '접속 기록' 메뉴와 '데모 초기화'가 보인다
+  4) 누구나 자기 작업 공간의 '데모 초기화'를 쓸 수 있고, '접속 기록'(전체 초기화 포함)은 관리자에게만 보인다
   5) 화면 사용 뒤 access_logs에 visit/login 이외의 사용 기록이 쌓인다 (LLM 동작은 run_scenario에서 확인)
 """
 from __future__ import annotations
@@ -69,21 +69,26 @@ def main() -> int:
         print(f"[2·3] 언어 {lang}: 사용자 3명 × 화면 {len(PAGES)}개 렌더링 완료")
 
     reset_labels = {"초기화 실행", "Run reset"}
-    admin_has_reset = any(b.label in reset_labels for b in at.button)
+    reset_all_labels = {"전체 초기화 실행", "Reset everything"}
+    at.switch_page(PAGES[5]).run()
+    admin_has_reset_all = any(b.label in reset_all_labels for b in at.button)
     os.environ["DEMO_DEV_EMAIL"] = "viewer@example.com"
     viewer = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120)
     viewer.run()
-    viewer_menu = any(b.label in reset_labels for b in viewer.button)
+    viewer_has_reset = any(b.label in reset_labels for b in viewer.button)
     try:
         viewer.switch_page(PAGES[5]).run()
         viewer_blocked = any(e.value for e in viewer.error)       # 주소로 들어와도 화면 안에서 막힘
     except ValueError:
         viewer_blocked = True                                       # 일반 사용자에게는 화면이 등록되지 않음
-    viewer_blocked = viewer_blocked and not viewer_menu
-    print(f"[4] 일반 사용자 '접속 기록'·초기화 차단: {'✓' if viewer_blocked else '✗'} / 관리자 초기화 메뉴: "
-          f"{'✓' if admin_has_reset else '✗'}")
+    print(f"[4] 일반 사용자: 자기 초기화 {'✓' if viewer_has_reset else '✗'}, '접속 기록' 차단 "
+          f"{'✓' if viewer_blocked else '✗'} / 관리자 전체 초기화 {'✓' if admin_has_reset_all else '✗'}")
     if not viewer_blocked:
         failures.append("viewer can open audit page")
+    if not viewer_has_reset:
+        failures.append("viewer has no own reset")
+    if not admin_has_reset_all:
+        failures.append("admin has no reset-all")
 
     from core.db import get_db
     rows = get_db().query("SELECT event, COUNT(*) AS n FROM access_logs GROUP BY event ORDER BY event")

@@ -5,7 +5,7 @@ import streamlit as st
 from core.db import get_db
 from core.mem9_client import get_mem9, user_app_id
 from core.overseas import overseas_status
-from ui.common import current_user, memory_lines, persona_name
+from ui.common import current_user, current_workspace, memory_lines, persona_name
 from ui.i18n import columns, krw, t
 
 db = get_db()
@@ -44,9 +44,10 @@ with left:
                  hide_index=True, alt=t("p2.accounts"))
 
 with right:
-    memories = get_mem9().list_memories(user_app_id(uid))
+    app_id = user_app_id(uid, current_workspace())
+    memories = get_mem9().list_memories(app_id)
     shown = [m for m in memories if m["memory_type"] != "session"]
-    st.markdown(t("p2.memories", n=len(shown), app=user_app_id(uid)))
+    st.markdown(t("p2.memories", n=len(shown), app=app_id))
     if not shown:
         st.info(t("p2.no_memories"))
     for m, line in zip(shown, memory_lines(shown)):

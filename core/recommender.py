@@ -43,7 +43,8 @@ JOIN protocols p      ON p.id = o.protocol_id
 JOIN user_holdings h  ON h.user_id = %(uid)s
                      AND h.asset_symbol = o.asset
                      AND h.chain = o.chain
-WHERE o.status = 'ACTIVE'
+WHERE o.workspace = %(ws)s
+  AND o.status = 'ACTIVE'
   AND o.chain IN (
         SELECT ec.chain
         FROM user_exchange_accounts ua
@@ -189,7 +190,7 @@ def recall_memory(state: dict) -> dict:
         GROUP BY e.id, e.name, e.type
         """, (uid,), label="추천: 거래소 계정")
     # q 검색은 단어 일치 방식이라 쓰지 않고 전체 목록을 가져온다 (ARCHITECTURE.md 1.2)
-    memories = [m for m in get_mem9().list_memories(user_app_id(uid))
+    memories = [m for m in get_mem9().list_memories(user_app_id(uid, state["workspace"]))
                 if m["memory_type"] in ("pinned", "insight")]
     return plain({
         "profile": profile,
@@ -207,7 +208,7 @@ def build_intent(state: dict) -> dict:
 
 
 def search_candidates(state: dict) -> dict:
-    rows = get_db().query(HYBRID_SQL, {"uid": state["user_id"], "intent": state["intent"]},
+    rows = get_db().query(HYBRID_SQL, {"ws": state["workspace"], "uid": state["user_id"], "intent": state["intent"]},
                           label="추천: 하이브리드 검색 (벡터 + 관계형)")
     return {"candidates": plain(rows)}
 
@@ -281,10 +282,10 @@ def save_recommendations(state: dict) -> dict:
         rec_id = db.execute(
             """
             INSERT INTO recommendations
-              (user_id, opportunity_id, thread_id, `rank`, rationale, memory_refs, command, model)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+              (workspace, user_id, opportunity_id, thread_id, `rank`, rationale, memory_refs, command, model)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (state["user_id"], c["opportunity_id"], state["thread_id"], c["rank"], c["rationale"],
+            (state["workspace"], state["user_id"], c["opportunity_id"], state["thread_id"], c["rank"], c["rationale"],
              json.dumps([m["id"] for m in c["memory_refs"]]),
              json.dumps({"proposed_steps": c["proposed_steps"]}, ensure_ascii=False), model),
             label="추천: 추천 저장 (AWAITING_APPROVAL)")
@@ -350,7 +351,7 @@ def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> li
     결정 기록에도 사유가 들어가므로, 먼저 저장하면 mem9가 같은 내용으로 보고 추출을 건너뛸 수 있다.
     """
     mem9 = get_mem9()
-    app_id = user_app_id(state["user_id"])
+    app_id = user_app_id(state["user_id"], state["workspace"])
     lang = state.get("lang", "ko")
     events: list[dict] = []
     if reason:
@@ -447,7 +448,7 @@ def execute_order(
     order = engine_mock.submit(db, card["recommendation_id"], command)
     first = steps[0]
     get_mem9().add_pinned(
-        user_app_id(state["user_id"]),
+        user_app_id(state["user_id"], state["workspace"]),
         (f"{date.today().isoformat()} Executed {card['title']}: {first['amount']:g} {first['from_asset']} ({first['chain']})"
          if state.get("lang") == "en" else
          f"{date.today().isoformat()} {card['title']} 실행 완료: {first['amount']:g} {first['from_asset']} ({first['chain']})"),

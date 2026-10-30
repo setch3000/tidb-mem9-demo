@@ -100,18 +100,30 @@ T: dict[str, tuple[str, str]] = {
     "side.signed_in": ("로그인: {email}", "Signed in: {email}"),
     "side.logout": ("로그아웃", "Sign out"),
     "side.reset": ("데모 초기화", "Reset demo"),
-    "side.reset_body": ("앱 데이터, 추천·실행 이력, 체크포인트, 사용자별 mem9 기억을 시드 상태로 되돌립니다. "
-                        "분석 결과도 지워지므로 Signal 분석부터 다시 시작합니다. 접속 기록은 지우지 않습니다. "
-                        "**모든 접속자가 같은 데이터를 쓰므로 모두에게 적용됩니다.**",
-                        "Restores app data, recommendation and execution history, checkpoints, and each "
-                        "persona's mem9 memories to the seed state. Analysis results are cleared too, so start "
-                        "again from Signal analysis. The access log is kept. "
-                        "**Everyone shares the same data, so this applies to all viewers.**"),
+    "side.reset_body": ("내 작업 공간의 분석 결과, 추천·실행 이력, 승인 대기, 사용자별 mem9 기억을 처음 상태로 되돌립니다. "
+                        "Signal 분석부터 다시 시작합니다. **다른 방문자의 데이터에는 영향이 없습니다.**",
+                        "Restores the analysis results, recommendation and execution history, pending approvals, "
+                        "and each persona's mem9 memories in your workspace to the starting state. Start again "
+                        "from Signal analysis. **Other visitors' data is not affected.**"),
     "side.reset_run": ("초기화 실행", "Run reset"),
-    "side.reset_spinner": ("초기화 중… (약 20초)", "Resetting… (about 20 seconds)"),
+    "side.reset_spinner": ("초기화 중… (약 15초)", "Resetting… (about 15 seconds)"),
     "side.reset_done": ("초기화했습니다.", "Reset complete."),
-    "side.reset_busy": ("다른 관리자가 초기화하고 있습니다. 잠시 뒤 다시 확인해 주세요.",
-                        "Another admin is already resetting. Check again in a moment."),
+    "side.reset_spinner_all": ("전체 초기화 중… (약 20초)", "Resetting everything… (about 20 seconds)"),
+    "p6.reset_all_title": ("**전체 초기화 (관리자)**", "**Reset everything (admin)**"),
+    "p6.reset_all_body": ("모든 작업 공간({n}개)의 분석 결과, 추천·실행 이력, 승인 대기를 지우고 시드 데이터를 다시 넣습니다. "
+                          "각 방문자의 mem9 기억은 다음에 접속할 때 처음 상태로 다시 기록됩니다. 접속 기록과 번역 캐시는 지우지 않습니다. "
+                          "시드 데이터(data/)를 바꾼 뒤에 씁니다.",
+                          "Clears the analysis results, recommendation and execution history, and pending approvals of "
+                          "all workspaces ({n}) and reloads the seed data. Each visitor's mem9 memories are rewritten to "
+                          "the starting state on their next visit. The access log and translation cache are kept. "
+                          "Use this after changing the seed data (data/)."),
+    "p6.reset_all_run": ("전체 초기화 실행", "Reset everything"),
+    "side.reset_busy": ("다른 창에서 이미 초기화하고 있습니다. 잠시 뒤 다시 확인해 주세요.",
+                        "A reset is already running in another window. Check again in a moment."),
+    "side.workspace": ("작업 공간 `{ws}` · 데이터는 로그인한 계정마다 따로 저장됩니다",
+                       "Workspace `{ws}` · data is kept separately for each signed-in account"),
+    "ws.preparing": ("내 작업 공간을 준비하는 중… (처음 한 번, 약 10초)",
+                     "Preparing your workspace… (first time only, about 10 seconds)"),
 
     # 용어
     "risk.conservative": ("보수형", "Conservative"),
@@ -431,6 +443,10 @@ LABELS_EN = {
     "화면: 최근 추천 스레드": "UI: latest recommendation thread",
     "화면: 투자 기회 목록": "UI: opportunity list",
     "화면: 번역 준비": "UI: prepare translations",
+    "작업 공간: 확인": "Workspace: check", "작업 공간: 생성": "Workspace: create",
+    "초기화: 주문": "Reset: orders", "초기화: 추천": "Reset: recommendations",
+    "초기화: 체크포인트": "Reset: checkpoints", "초기화: 작업 공간": "Reset: workspace",
+    "기록: 작업 공간 수": "Log: workspace count",
     "번역: 캐시 조회": "Translation: cache lookup", "번역: 캐시 저장": "Translation: cache save",
     "기록: 이벤트 저장": "Audit: save event",
     "기록: 이벤트 조회": "Audit: query events",

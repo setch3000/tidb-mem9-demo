@@ -63,3 +63,24 @@ per_user = db.query(
 st.markdown(t("p6.per_user"))
 st.dataframe(columns(per_user), hide_index=True, alt=t("p6.per_user_alt"))
 st.caption(t("p6.caption"))
+
+# ---- 전체 초기화 (모든 작업 공간) ----
+st.divider()
+st.markdown(t("p6.reset_all_title"))
+workspaces = db.query("SELECT COUNT(*) AS n FROM workspaces", label="기록: 작업 공간 수")[0]["n"]
+st.write(t("p6.reset_all_body", n=workspaces))
+resetting = st.session_state.get("_resetting_all", False)
+st.button(t("p6.reset_all_run"), icon=":material/restart_alt:", disabled=resetting,
+          on_click=lambda: st.session_state.update(_resetting_all=True))
+if resetting:
+    from scripts.seed import reset_demo
+
+    audit.log_event("admin:reset_all", {"workspaces": workspaces})
+    try:
+        with st.spinner(t("side.reset_spinner_all")):
+            reset_demo()
+    finally:
+        st.session_state.pop("_resetting_all", None)
+    st.cache_data.clear()
+    st.success(t("side.reset_done"))
+    st.rerun()

@@ -13,9 +13,10 @@ from langchain_core.utils.json import parse_partial_json
 from langgraph.types import Command
 
 from core import engine_mock, workflow
-from core.audit import log_event
+from core.audit import identity, log_event
 from core.db import get_db
 from core.llm import needs_translation, translate
+from core.workspace import workspace_id
 from ui.i18n import LANGS, lang, t
 
 PAGE_RECOMMEND = "app_pages/3_recommendations.py"
@@ -39,6 +40,11 @@ def persona_name(user: dict) -> str:
 
 def current_user_id() -> int:
     return st.session_state.get("user_id", 1)
+
+
+def current_workspace() -> str:
+    """로그인한 Google 계정의 작업 공간 (core/workspace.py)."""
+    return workspace_id(identity()["email"] or "anonymous")
 
 
 def current_user() -> dict:
@@ -127,8 +133,9 @@ def pending(snapshot) -> dict | None:
 
 def latest_thread(user_id: int) -> str | None:
     rows = get_db().query(
-        "SELECT thread_id FROM recommendations WHERE user_id = %s ORDER BY created_at DESC, `rank` LIMIT 1",
-        (user_id,), label="화면: 최근 추천 스레드")
+        """SELECT thread_id FROM recommendations WHERE workspace = %s AND user_id = %s
+           ORDER BY created_at DESC, `rank` LIMIT 1""",
+        (current_workspace(), user_id), label="화면: 최근 추천 스레드")
     return rows[0]["thread_id"] if rows else None
 
 
@@ -137,9 +144,9 @@ def waiting_threads(user_id: int, kind: str) -> list[tuple[str, Any, dict]]:
     rows = get_db().query(
         """
         SELECT thread_id, MAX(created_at) AS created_at FROM recommendations
-        WHERE user_id = %s AND status = 'AWAITING_APPROVAL'
+        WHERE workspace = %s AND user_id = %s AND status = 'AWAITING_APPROVAL'
         GROUP BY thread_id ORDER BY created_at DESC LIMIT 5
-        """, (user_id,), label="화면: 대기 중인 스레드")
+        """, (current_workspace(), user_id), label="화면: 대기 중인 스레드")
     found = []
     for r in rows:
         snap = thread_snapshot(r["thread_id"])
@@ -221,11 +228,12 @@ def stream_graph(graph_input, thread_id: str, status, *, show_cards: bool = Fals
 
 
 def start_recommendation(user_id: int) -> str:
-    thread_id = workflow.new_thread_id()
+    workspace = current_workspace()
+    thread_id = workflow.new_thread_id(workspace)
     log_event("llm:recommend", {"persona": user_id, "thread_id": thread_id, "lang": lang()})
     with st.status(t("status.building"), expanded=True) as status:
-        stream_graph({"user_id": user_id, "thread_id": thread_id, "lang": lang()}, thread_id, status,
-                     show_cards=True)
+        stream_graph({"workspace": workspace, "user_id": user_id, "thread_id": thread_id, "lang": lang()},
+                     thread_id, status, show_cards=True)
         status.update(label=t("status.built"), state="complete", expanded=False)
     return thread_id
 

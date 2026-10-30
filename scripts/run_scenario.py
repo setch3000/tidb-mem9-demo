@@ -1,6 +1,8 @@
 """하이라이트 장면(ARCHITECTURE.md 4.4)을 UI 없이 처음부터 끝까지 실행해 확인한다.
 
     python scripts/run_scenario.py                  # 초기화 → 분석 → 1회차 → 거절 → 2회차 → 승인·실행
+
+시나리오 전용 작업 공간(scenario@localhost)에서 실행하므로 다른 방문자의 데이터에는 영향이 없다.
     python scripts/run_scenario.py --skip-reset     # 현재 데이터·기억 그대로 1회차부터
     python scripts/run_scenario.py --user 2
     python scripts/run_scenario.py --lang en       # 영어로 생성 (거절 사유도 영어)
@@ -32,7 +34,9 @@ from langgraph.types import Command  # noqa: E402
 
 from core import workflow  # noqa: E402
 from core.db import get_db  # noqa: E402
-from scripts.seed import reset_demo  # noqa: E402
+from core.workspace import ensure_workspace, reset_workspace, workspace_id  # noqa: E402
+
+WORKSPACE = workspace_id("scenario@localhost")
 
 REJECT_REASON = {
     "ko": "변동성이 큰 상품은 부담스러워요. 비영구적 손실도 걱정돼요.",
@@ -47,9 +51,10 @@ def pending(state: dict) -> dict | None:
 
 def recommend(user_id: int, lang: str) -> tuple[str, dict]:
     graph = workflow.get_recommend_graph()
-    thread_id = workflow.new_thread_id()
+    thread_id = workflow.new_thread_id(WORKSPACE)
     start = time.perf_counter()
-    state = graph.invoke({"user_id": user_id, "thread_id": thread_id, "lang": lang}, workflow.thread_config(thread_id))
+    state = graph.invoke({"workspace": WORKSPACE, "user_id": user_id, "thread_id": thread_id, "lang": lang},
+                         workflow.thread_config(thread_id))
     print(f"  ({time.perf_counter() - start:.1f}초, thread={thread_id})")
     print(f"  기억 {len(state['memories'])}개: " + " / ".join(m["content"] for m in state["memories"]))
     print(f"  검색 의도: {state['intent']}")
@@ -104,14 +109,15 @@ def main() -> int:
     args = parser.parse_args()
     checks: dict[str, bool] = {}
 
+    ensure_workspace(WORKSPACE)
     if not args.skip_reset:
         print("[0] 데모 초기화")
         t = time.perf_counter()
-        reset_demo()
+        reset_workspace(WORKSPACE)
         print(f"  ({time.perf_counter() - t:.1f}초)")
         print("[1] 원문 분석 (analysis_graph)")
         t = time.perf_counter()
-        result = workflow.run_analysis()
+        result = workflow.run_analysis(WORKSPACE)
         print(f"  ({time.perf_counter() - t:.1f}초) 원문 {len(result.get('signals', []))}건 → 기회 {result.get('saved', 0)}개, "
               f"제외 {len(result.get('skipped', []))}건")
 
