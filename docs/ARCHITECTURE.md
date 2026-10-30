@@ -743,6 +743,7 @@ LANGSMITH_PROJECT=tidb-mem9-demo
    - TiDB 연결은 TLS가 필수이며, certifi CA 번들을 사용하므로 별도 파일 업로드는 필요 없습니다.
 6. 배포 URL이 정해지면 `[auth]`의 `redirect_uri`를 `https://<앱>.streamlit.app/oauth2callback`로 바꾸고, Google OAuth 클라이언트에도 같은 URI를 등록합니다.
 7. 실제 로그인으로 확인합니다: ⑥ 접속 기록에 로그인 기록이 남는지 봅니다. (확인 결과 Community Cloud는 실제 접속자 IP를 전달하지 않아 IP는 기록하지 않습니다. 6.2절)
+8. **이후 업데이트**: `main`에 push하면 Cloud가 코드를 받아 오지만 서버는 재시작하지 않습니다. 화면 파일(`app_pages/`)은 새 코드로 실행되는 반면, 이미 불러온 모듈(`core/`, `ui/`)은 예전 코드로 남습니다. 그래서 새 함수를 쓰는 화면에서 `ImportError`가 납니다(2026-10-30 확인). **모듈을 바꾼 push 뒤에는 Manage app → ⋮ → Reboot app**으로 재시작합니다. 재시작하면 SQL Inspector와 mem9 호출 기록(서버 메모리)이 비워집니다.
 
 ### 8.6 Google 로그인 설정 (OAuth 클라이언트)
 
