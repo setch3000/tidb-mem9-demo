@@ -101,13 +101,17 @@ T: dict[str, tuple[str, str]] = {
     "side.logout": ("로그아웃", "Sign out"),
     "side.reset": ("데모 초기화", "Reset demo"),
     "side.reset_body": ("앱 데이터, 추천·실행 이력, 체크포인트, 사용자별 mem9 기억을 시드 상태로 되돌립니다. "
-                        "분석 결과도 지워지므로 Signal 분석부터 다시 시작합니다. 접속 기록은 지우지 않습니다.",
+                        "분석 결과도 지워지므로 Signal 분석부터 다시 시작합니다. 접속 기록은 지우지 않습니다. "
+                        "**모든 접속자가 같은 데이터를 쓰므로 모두에게 적용됩니다.**",
                         "Restores app data, recommendation and execution history, checkpoints, and each "
                         "persona's mem9 memories to the seed state. Analysis results are cleared too, so start "
-                        "again from Signal analysis. The access log is kept."),
+                        "again from Signal analysis. The access log is kept. "
+                        "**Everyone shares the same data, so this applies to all viewers.**"),
     "side.reset_run": ("초기화 실행", "Run reset"),
     "side.reset_spinner": ("초기화 중… (약 20초)", "Resetting… (about 20 seconds)"),
     "side.reset_done": ("초기화했습니다.", "Reset complete."),
+    "side.reset_busy": ("다른 관리자가 초기화하고 있습니다. 잠시 뒤 다시 확인해 주세요.",
+                        "Another admin is already resetting. Check again in a moment."),
 
     # 용어
     "risk.conservative": ("보수형", "Conservative"),
