@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 from functools import lru_cache
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -20,6 +20,7 @@ from core.call_log import CallLog
 from core.config import get_settings
 
 MEMORIES = "/v1alpha2/mem9s/memories"
+RATE_LIMIT_RETRIES = 3     # 429 Too Many Requests 재시도 횟수
 
 
 def user_app_id(user_id: int, workspace: str) -> str:
@@ -38,18 +39,28 @@ class Mem9Client:
         self.calls = CallLog(maxlen=200)   # Behind the scenes 화면용 호출 로그 (작업 공간별)
 
     def _request(self, method: str, path: str, **kwargs) -> Any:
-        start = time.perf_counter()
-        res = self._http.request(method, path, **kwargs)
-        self.calls.append({
-            "method": method,
-            "path": path,
-            "params": kwargs.get("params"),
-            "body": kwargs.get("json"),
-            "status": res.status_code,
-            "ms": round((time.perf_counter() - start) * 1000),
-        })
-        res.raise_for_status()
+        res = self._send(method, path, **kwargs)
         return res.json() if res.content else None
+
+    def _send(self, method: str, path: str, **kwargs) -> httpx.Response:
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
+            start = time.perf_counter()
+            res = self._http.request(method, path, **kwargs)
+            self.calls.append({
+                "method": method,
+                "path": path,
+                "params": kwargs.get("params"),
+                "body": kwargs.get("json"),
+                "status": res.status_code,
+                "ms": round((time.perf_counter() - start) * 1000),
+            })
+            # 요청 한도(429)에 걸리면 Retry-After(없으면 1·2·4초)만큼 쉬고 다시 보낸다
+            if res.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
+                break
+            retry_after = res.headers.get("Retry-After", "")
+            time.sleep(min(float(retry_after), 10) if retry_after.isdigit() else 2 ** attempt)
+        res.raise_for_status()
+        return res
 
     def status(self) -> str:
         return self._request("GET", "/v1alpha2/status").get("status", "")
@@ -79,17 +90,28 @@ class Mem9Client:
             body["metadata"] = metadata
         return self._request("POST", MEMORIES, json=body)
 
-    def ingest(self, app_id: str, messages: list[dict[str, str]]) -> None:
-        """대화를 넘겨 mem9가 사실을 추출·조정하게 한다 (비동기, 결과는 wait_for_insights로 확인)."""
-        self._request("POST", MEMORIES, json={"appId": app_id, "mode": "smart", "messages": messages})
+    def ingest(self, app_id: str, messages: list[dict[str, str]]) -> int:
+        """대화를 넘겨 mem9가 사실을 추출·조정하게 한다 (비동기, 결과는 wait_for_insights로 확인).
+
+        HTTP 상태 코드를 돌려준다 (접수되면 202).
+        """
+        return self._send("POST", MEMORIES, json={"appId": app_id, "mode": "smart", "messages": messages}).status_code
 
     def wait_for_insights(
-        self, app_id: str, known_ids: set[str], *, timeout: float = 30, interval: float = 3
+        self, app_id: str, known_ids: set[str], *, timeout: float = 30, interval: float = 1,
+        on_poll: Callable[[int], None] | None = None,
     ) -> list[dict]:
-        """known_ids에 없던 insight가 생길 때까지 기다린다. 시간 안에 없으면 빈 목록."""
+        """known_ids에 없던 insight가 생길 때까지 기다린다. 시간 안에 없으면 빈 목록.
+
+        on_poll(n)은 n번째 확인이 끝날 때마다 불린다 (진행 표시용).
+        """
         deadline = time.monotonic() + timeout
+        polls = 0
         while True:
             new = [m for m in self.list_memories(app_id, memory_type="insight") if m["id"] not in known_ids]
+            polls += 1
+            if on_poll:
+                on_poll(polls)
             if new or time.monotonic() >= deadline:
                 return new
             time.sleep(interval)

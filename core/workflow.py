@@ -89,7 +89,7 @@ class RecommendState(TypedDict, total=False):
     exec_tool_calls: int
     outcome: str                      # approved / rejected / failed
     command: dict[str, Any]           # 승인 화면에 보이고 실행된 ExecutionCommand
-    memory_events: list[dict[str, Any]]
+    memory_job: str                   # 승인·거절 뒤 mem9 기억 정리 작업 (core/memory_jobs.py)
     order: dict[str, Any]
     error: str
 

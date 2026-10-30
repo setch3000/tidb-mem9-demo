@@ -2,11 +2,12 @@
 import altair as alt
 import streamlit as st
 
+from core import memory_jobs
 from core.db import get_db
 from core.mem9_client import get_mem9, user_app_id
 from core.overseas import overseas_status
 from ui.common import (MEMORY_SOURCES, current_user, current_workspace, memory_lines, memory_source,
-                       persona_name)
+                       memory_updating_note, persona_name)
 from ui.i18n import columns, krw, t
 
 db = get_db()
@@ -60,6 +61,8 @@ with right, st.container(border=True, key="agent_memory"):
         if source == "history" and not group:
             continue
         st.markdown(t(f"mem.{source}", n=len(group)))
+        if source == "learned" and memory_jobs.pending(app_id):
+            memory_updating_note(app_id)     # 뒤에서 정리 중이면 표시하고, 끝나면 화면을 다시 그린다
         if source != "history":
             st.caption(t(f"mem.{source}_desc"))
         if source == "learned" and not group:

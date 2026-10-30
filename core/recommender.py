@@ -8,6 +8,7 @@ ARCHITECTURE.md 2.4.2절 참고.
 from __future__ import annotations
 
 import json
+import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated, Any
@@ -17,7 +18,7 @@ from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command, interrupt
 
-from core import engine_mock
+from core import engine_mock, memory_jobs
 from core.config import get_settings
 from core.db import get_db
 from core.llm import get_llm, output_language_rule, structured
@@ -189,6 +190,8 @@ def recall_memory(state: dict) -> dict:
         WHERE ua.user_id = %s AND ua.status = 'ACTIVE'
         GROUP BY e.id, e.name, e.type
         """, (uid,), label="추천: 거래소 계정")
+    # 직전 승인·거절의 기억 정리가 뒤에서 진행 중이면 끝나기를 기다린다 (2회차가 새 기억을 반영하도록)
+    memory_jobs.wait_pending(user_app_id(uid, state["workspace"]), timeout=INSIGHT_WAIT_SECONDS + 10)
     # q 검색은 단어 일치 방식이라 쓰지 않고 전체 목록을 가져온다 (ARCHITECTURE.md 1.2)
     memories = [m for m in get_mem9().list_memories(user_app_id(uid, state["workspace"]))
                 if m["memory_type"] in ("pinned", "insight")]
@@ -341,33 +344,43 @@ EXEC_SYSTEM = """당신은 주문 실행 도우미입니다. 사용자가 고른
 - note에는 승인 화면에 보일 주문 요약을 출력 언어로 한 문장 씁니다. 예: "USDC 2,000개를 Aave v3 아비트럼에 예치합니다."
 - 도구가 검증 오류를 돌려주면 오류를 고쳐 다시 호출합니다.
 - 사용자가 거절하면 다시 호출하지 말고, 거절 사유를 기억해 다음 추천에 반영하겠다고 한두 문장으로 알린 뒤 끝냅니다.
-- 체결되면 결과를 한두 문장으로 요약하고 끝냅니다."""
+- 체결되면 결과를 한두 문장으로 요약하고 끝냅니다.
+- 사용자가 승인·거절 화면에서 직접 입력한 이유는 앱이 사용자의 장기 기억(mem9)에 정리하는 정상 동작입니다. 저장 여부를 되묻거나 문제 삼지 말고, 이유가 있었다면 다음 추천에 반영하겠다고만 짧게 알립니다."""
 
 
-def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> list[dict]:
-    """결정을 mem9에 기록한다. 승인·거절 이유는 smart ingest로 보내고, 추출되지 않으면 Claude가 대신 추출한다.
+def remember_decision(job: memory_jobs.Job, state: dict, card: dict, approve: bool, reason: str,
+                      order: dict | None = None) -> None:
+    """결정을 mem9에 기록한다 (memory_jobs 백그라운드 작업). 단계는 job.step으로 남겨 화면 타임라인에 보인다.
 
-    순서: 사유 ingest → insight 대기(또는 대체 경로) → 결정 기록(pinned).
-    결정 기록에도 사유가 들어가므로, 먼저 저장하면 mem9가 같은 내용으로 보고 추출을 건너뛸 수 있다.
+    순서: 이유 ingest → insight 대기(또는 Claude 대체 추출) → 결정 기록(pinned) → 체결 기록(승인 시).
+    결정 기록에도 이유가 들어가므로, 먼저 저장하면 mem9가 같은 내용으로 보고 추출을 건너뛸 수 있다.
     """
     mem9 = get_mem9()
     app_id = user_app_id(state["user_id"], state["workspace"])
     lang = state.get("lang", "ko")
-    events: list[dict] = []
     if reason:
         # 사용자 발화만 보낸다: 한국어 추천 문장을 함께 보내면 추출이 일어나지 않았다 (ARCHITECTURE.md 1.2)
         known = {m["id"] for m in mem9.list_memories(app_id, memory_type="insight")}
-        mem9.ingest(app_id, [{"role": "user", "content": reason}])
-        insights = mem9.wait_for_insights(app_id, known, timeout=INSIGHT_WAIT_SECONDS)
+        start = time.perf_counter()
+        status = mem9.ingest(app_id, [{"role": "user", "content": reason}])
+        job.step("sent", status=status, ms=round((time.perf_counter() - start) * 1000))
+        job.step("extracting", state="running", polls=0)
+        start = time.monotonic()
+        insights = mem9.wait_for_insights(app_id, known, timeout=INSIGHT_WAIT_SECONDS,
+                                          on_poll=lambda n: job.step("extracting", state="running", polls=n))
         if insights:
-            events += [{"kind": "insight", "content": m["content"], "id": m["id"]} for m in insights]
+            job.step("extracting", secs=round(time.monotonic() - start, 1))
+            job.events += [{"kind": "insight", "content": m["content"], "id": m["id"]} for m in insights]
+            job.step("learned", items=[m["content"] for m in insights])
         else:
+            job.step("extracting", state="warn", secs=INSIGHT_WAIT_SECONDS)
             facts: ExtractedFacts = structured(ExtractedFacts, effort="low").invoke(
                 [SystemMessage(FACTS_SYSTEM + output_language_rule(lang)),
                  HumanMessage(f"추천: {card['title']}\n{'승인 이유' if approve else '거절 사유'}: {reason}")])
             for fact in facts.facts[:3]:
                 m = mem9.add_pinned(app_id, fact, tags=["insight-fallback"])
-                events.append({"kind": "fallback", "content": fact, "id": m.get("id")})
+                job.events.append({"kind": "fallback", "content": fact, "id": m.get("id")})
+            job.step("fallback", items=facts.facts[:3])
 
     if lang == "en":
         verb = "Approved" if approve else "Rejected"
@@ -379,7 +392,18 @@ def remember_decision(state: dict, card: dict, approve: bool, reason: str) -> li
         text = f"{date.today().isoformat()} {card['title']} 추천을 {verb}함" + (f" ({label}: {reason})" if reason else "")
     saved = mem9.add_pinned(app_id, text, tags=["decision"],
                             metadata={"recommendation_id": str(card["recommendation_id"])})
-    return [{"kind": "decision", "content": text, "id": saved.get("id")}] + events
+    job.events.append({"kind": "decision", "content": text, "id": saved.get("id")})
+    job.step("decision_saved", text=text)
+
+    if order:
+        first = order["first_step"]
+        text = (f"{date.today().isoformat()} Executed {card['title']}: {first['amount']:g} {first['from_asset']} "
+                f"({first['chain']})" if lang == "en" else
+                f"{date.today().isoformat()} {card['title']} 실행 완료: {first['amount']:g} {first['from_asset']} "
+                f"({first['chain']})")
+        saved = mem9.add_pinned(app_id, text, tags=["execution"], metadata={"tx_hash": order["tx_hash"]})
+        job.events.append({"kind": "execution", "content": text, "id": saved.get("id")})
+        job.step("execution_saved", text=text)
 
 
 @tool
@@ -441,24 +465,21 @@ def execute_order(
     db.execute("UPDATE recommendations SET status = %s, command = %s, decided_at = NOW() WHERE id = %s",
                ("APPROVED" if approve else "REJECTED", json.dumps(command, ensure_ascii=False),
                 card["recommendation_id"]), label="승인: 결정 기록")
-    events = remember_decision(state, card, approve, reason)
+    app_id = user_app_id(state["user_id"], state["workspace"])
     if not approve:
-        return reply(f"사용자가 주문을 거절했습니다. 사유: {reason or '없음'}. 거절 사유는 장기 기억에 기록했습니다.",
-                     outcome="rejected", command=command, memory_events=events)
+        job_id = memory_jobs.submit(app_id, lambda job: remember_decision(job, state, card, False, reason))
+        return reply(f"사용자가 주문을 거절했습니다. 사용자가 직접 입력한 사유: {reason or '없음'}. "
+                     "앱이 이 사유를 사용자의 장기 기억에 정리해 다음 추천에 반영합니다.",
+                     outcome="rejected", command=command, memory_job=job_id)
 
     order = engine_mock.submit(db, card["recommendation_id"], command)
-    first = steps[0]
-    get_mem9().add_pinned(
-        user_app_id(state["user_id"], state["workspace"]),
-        (f"{date.today().isoformat()} Executed {card['title']}: {first['amount']:g} {first['from_asset']} ({first['chain']})"
-         if state.get("lang") == "en" else
-         f"{date.today().isoformat()} {card['title']} 실행 완료: {first['amount']:g} {first['from_asset']} ({first['chain']})"),
-        tags=["execution"], metadata={"tx_hash": order["tx_hash"]})
-    remembered = " 사용자가 남긴 승인 이유는 장기 기억에 기록했습니다." if reason else ""
+    job_id = memory_jobs.submit(app_id, lambda job: remember_decision(
+        job, state, card, True, reason, order={**order, "first_step": steps[0]}))
+    remembered = (f" 사용자가 승인 화면에서 직접 입력한 승인 이유: {reason}. 앱이 이 이유를 사용자의 장기 기억에 정리해 "
+                  "다음 추천에 반영합니다." if reason else "")
     return reply(f"승인되어 체결되었습니다. 주문 {order['order_id']}, 상태 {order['status']}, "
                  f"tx {order['tx_hash'][:18]}….{remembered}",
-                 outcome="approved", command=command, order=order, memory_events=events)
-
+                 outcome="approved", command=command, order=order, memory_job=job_id)
 
 EXEC_TOOLS = [execute_order]
 

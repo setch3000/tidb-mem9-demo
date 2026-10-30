@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT))
 
 from langgraph.types import Command  # noqa: E402
 
-from core import workflow  # noqa: E402
+from core import memory_jobs, workflow  # noqa: E402
 from core.db import get_db  # noqa: E402
 from core.workspace import ensure_workspace, reset_workspace, workspace_id  # noqa: E402
 
@@ -98,11 +98,15 @@ def request_execution(thread_id: str, card: dict) -> dict | None:
 def decide(thread_id: str, decision: dict) -> dict:
     start = time.perf_counter()
     state = workflow.get_recommend_graph().invoke(Command(resume=decision), workflow.thread_config(thread_id))
-    print(f"  ({time.perf_counter() - start:.1f}초)")
-    for e in state.get("memory_events", []):
-        print(f"  mem9 {e['kind']}: {e['content']}")
+    print(f"  결정 처리 {time.perf_counter() - start:.1f}초 (화면이 기다리는 시간)")
     print(f"  agent: {state['messages'][-1].content}")
-    return state
+    job = memory_jobs.get(state.get("memory_job"))
+    job.wait(60)                      # 기억 정리는 백그라운드: 판정을 위해 여기서만 기다린다
+    snap = job.snapshot()
+    print(f"  mem9 기억 정리 {snap['elapsed']:.1f}초 (백그라운드)" + (f" ✗ {snap['error']}" if snap["error"] else ""))
+    for e in snap["events"]:
+        print(f"  mem9 {e['kind']}: {e['content']}")
+    return {**state, "memory_events": snap["events"]}
 
 
 def main() -> int:

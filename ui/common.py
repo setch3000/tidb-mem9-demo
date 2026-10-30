@@ -12,7 +12,7 @@ import streamlit as st
 from langchain_core.utils.json import parse_partial_json
 from langgraph.types import Command
 
-from core import engine_mock, workflow
+from core import engine_mock, memory_jobs, workflow
 from core.audit import identity, log_event
 from core.db import get_db
 from core.llm import needs_translation, translate
@@ -261,7 +261,86 @@ def request_execution(thread_id: str, recommendation_id: int) -> None:
 def decide_order(thread_id: str, decision: dict) -> None:
     log_event("llm:decision", {"thread_id": thread_id, "action": decision["action"],
                                "reason": decision.get("reason", "")})
-    label = t("status.executing") if decision["action"] == "approve" else t("status.remembering")
+    label = t("status.executing") if decision["action"] == "approve" else t("status.recording")
     with st.status(label, expanded=True) as status:
         stream_graph(Command(resume=decision, update={"lang": lang()}), thread_id, status)
         status.update(label=t("status.done"), state="complete", expanded=False)
+
+
+# ---- 승인·거절 뒤 mem9 기억 정리 (백그라운드 작업) ----
+
+STEP_ICONS = {"done": "✓", "running": "⏳", "warn": "⚠"}
+
+
+def _step_line(step: dict) -> str:
+    key, state, d = step["key"], step["state"], step["detail"]
+    if key == "sent":
+        status = "202 Accepted" if d.get("status") == 202 else str(d.get("status"))
+        title, detail = t("job.sent"), t("job.sent_detail", status=status, ms=d.get("ms"))
+    elif key == "extracting" and state == "running":
+        title, detail = t("job.extracting_running"), t("job.extracting_detail", n=d.get("polls", 0))
+    elif key == "extracting" and state == "warn":
+        title, detail = t("job.extracting_warn", s=d.get("secs")), ""
+    elif key == "extracting":
+        title, detail = t("job.extracting_done"), t("job.secs", s=d.get("secs"))
+    elif key in ("learned", "fallback"):
+        icon = "💡" if key == "learned" else "📌"
+        items = localized(d.get("items", []))
+        title = t("job.learned", n=len(items)) if key == "learned" else t("job.fallback")
+        detail = " / ".join(f"{icon} {x}" for x in items)
+    else:                                  # decision_saved, execution_saved
+        title, detail = t("job." + key), "📌 " + localized_one(d.get("text"))
+    line = f"`+{step['at']:.1f}s` {STEP_ICONS[state]} **{title}**"
+    return f"{line} · {detail}" if detail else line
+
+
+def _memory_job_body(job_id: str, snap: dict) -> None:
+    learned = sum(e["kind"] in ("insight", "fallback") for e in snap["events"])
+    if snap["error"]:
+        label = t("job.title_failed")
+    elif snap["running"]:
+        label = t("job.title_running", s=f"{snap['elapsed']:.0f}")
+    elif any(s["key"] == "sent" for s in snap["steps"]):
+        label = t("job.title_done", n=learned, s=f"{snap['elapsed']:.1f}")
+    else:
+        label = t("job.title_recorded", s=f"{snap['elapsed']:.1f}")
+    # 라벨이 매초 바뀌어도 펼침 상태가 유지되도록 key로 고정한다.
+    # on_change를 함께 주면 라벨이 바뀔 때 접혀 버리므로 주지 않는다 (2026-10-30 확인)
+    with st.expander(label, icon=":material/psychology:", key=f"memjob_{job_id}"):
+        st.caption(t("job.intro"))
+        st.markdown("  \n".join(_step_line(s) for s in snap["steps"]))
+        if snap["error"]:
+            st.error(t("job.error", e=snap["error"]))
+        elif not snap["running"] and learned:
+            st.caption(t("job.to_dashboard"))
+
+
+@st.fragment(run_every=1)
+def _memory_job_live(job_id: str) -> None:
+    job = memory_jobs.get(job_id)
+    snap = job.snapshot() if job else None
+    if snap is None or not snap["running"]:
+        st.rerun()                         # 끝나면 전체를 다시 그려 1초 갱신을 멈춘다
+    _memory_job_body(job_id, snap)
+
+
+def memory_job_panel(job_id: str | None) -> None:
+    """승인·거절 뒤 mem9가 뒤에서 하는 일. 기본은 접혀 있고, 진행 중일 때만 1초마다 갱신한다."""
+    job = memory_jobs.get(job_id)
+    if job is None:                        # 앱 재시작 등으로 작업 정보가 없으면 표시하지 않는다
+        return
+    snap = job.snapshot()
+    if snap["running"]:
+        _memory_job_live(job_id)
+    else:
+        _memory_job_body(job_id, snap)
+
+
+@st.fragment(run_every=1)
+def memory_updating_note(app_id: str) -> None:
+    """대시보드: 이 기억 공간의 정리가 진행 중이면 '정리 중…'을 띄우고, 끝나면 화면을 다시 그린다."""
+    if memory_jobs.pending(app_id):
+        st.caption(t("mem.updating"))
+    else:
+        st.rerun()
+

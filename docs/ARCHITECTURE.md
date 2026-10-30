@@ -248,12 +248,12 @@ sequenceDiagram
   L->>UI: tool 호출 execute_order(steps, note)
   UI->>E: 검증 후 simulate (예상 체결·가스·연 수익)
   UI->>DB: tool 안에서 interrupt() → 주문 승인 대기
-  U->>UI: 승인 또는 거절(사유 입력)
-  UI->>M: 결정 기록(pinned) + 거절 사유 smart ingest
-  M-->>UI: insight 추출 (비동기, 최대 15초 대기, 없으면 Claude 추출 → pinned)
+  U->>UI: 승인 또는 거절(이유 입력은 선택)
   alt 승인
     UI->>E: submit (PENDING → SUBMITTED → CONFIRMED, tx_hash 기록)
   end
+  UI-->>U: 결과·agent 답변 표시 (여기서 사용자 경험은 끝남)
+  UI->>M: [백그라운드] 이유 smart ingest → insight 대기(1초 간격, 15초 넘으면 Claude 추출) → 결정·체결 기록(pinned)
   UI->>L: tool 결과 → agent가 결과 요약
 ```
 
@@ -471,6 +471,13 @@ LIMIT 10;
 | 추천 거절 — 사유 | `messages`(**사용자 발화만**) + `mode: smart` (비동기) | 사용자: "변동성이 큰 상품은 부담스러워요. 비영구적 손실도 걱정돼요." → mem9가 "Rejects investment products with high volatility" 등 `insight`로 정리 |
 | 추천 승인 — 고른 이유 (선택 입력) | 거절 사유와 같은 방식 | 사용자: "언제든 인출할 수 있는 안정적인 이자 수익이 좋아요." → "Prefers stable interest income that can be withdrawn at any time" (2026-10-30 확인) |
 | 이유 추출 실패 시 (대체 경로) | Claude로 사실 추출 → `content` + `pinned`, `tags: ["insight-fallback"]` | 15초 안에 새 `insight`가 없을 때만 |
+
+- **백그라운드 처리 (2026-10-30)**: 승인·거절 직후의 mem9 쓰기(이유 ingest, 추출 대기·대체 경로, 결정·체결 기록)는 모두 백그라운드 작업으로 돌립니다([core/memory_jobs.py](../core/memory_jobs.py)). 화면은 체결 결과와 agent 답변까지만 기다립니다.
+  - 측정: 결정 처리 2.0~3.1초(화면 대기), 기억 정리 5.8~6.9초(백그라운드).
+  - 승인 화면의 **"mem9 기억 정리"** expander(기본 접힘)를 펼치면 단계(전송 202 → 추출 중 → 새 기억 → 결정·체결 기록)와 경과 시간이 1초마다 갱신됩니다. 시연자가 mem9 동작을 설명할 때 씁니다.
+  - 대시보드는 정리 중이면 "대화에서 배운 기억" 옆에 "정리 중…"을 띄우고, 끝나면 저절로 다시 그립니다.
+  - 다음 추천의 `recall_memory`는 진행 중인 작업이 끝나기를 기다린 뒤 기억을 읽습니다. 정리 전에 "새 추천 받기"를 눌러도 새 기억이 반영됩니다.
+  - mem9가 429(요청 한도)를 돌려주면 `Retry-After`(없으면 1·2·4초)만큼 쉬고 최대 3번 다시 보냅니다.
 | 실행 완료 | `content` + `pinned`, `tags: ["execution"]` | "2026-10-29 USDC 1,000을 Aave(Arbitrum)에 예치 승인·실행" |
 
 - 거절 사유에 추천 문장(assistant 메시지)을 함께 보내지 않는 이유: 한국어 추천 문장이 섞이면 추출이 일어나지 않았습니다(1.2 확인 결과). 어떤 상품을 거절했는지는 결정 기록과 `recommendations` 테이블로 남깁니다.
@@ -495,7 +502,7 @@ LIMIT 10;
 
 1. **1회차**: 리스크 한도 안에서 연 10% 목표를 채우는 후보가 Uniswap ETH-USDC LP(연 18%)뿐이라 LP가 1~2순위로 추천됨
 2. 사용자 A가 LP에 **"실행 요청"** → 실행 agent가 `execute_order` tool을 호출하고 승인 화면에 주문이 뜸 ("USDC 총 750개를 스왑 375개 + 예치 375개로 나눠 Uniswap v3 아비트럼 USDC-ETH LP에 투입", 연 예상 $135) → 주문을 검토한 뒤 **거절**하며 사유 입력: "변동성이 큰 상품은 부담스러워요. 비영구적 손실도 걱정돼요." → agent가 "사유를 기억해 다음 추천에 반영하겠다"고 답함
-3. mem9가 사실을 추출해 저장 (보통 3~7초, "기억 정리 중" 표시) → ② 대시보드 Agent 기억의 "대화에서 배운 기억" 칸에 표시. 15초 안에 추출되지 않으면 Claude가 추출해 저장(대체 경로)
+3. 거절하면 agent 답변까지 바로 끝나고, mem9가 뒤에서 사실을 추출해 저장합니다(보통 5~7초). 승인 화면의 "mem9 기억 정리"를 펼치면 과정이 보이고, ② 대시보드 Agent 기억의 "대화에서 배운 기억" 칸에 나타납니다. 15초 안에 추출되지 않으면 Claude가 추출해 저장합니다(대체 경로).
 4. **2회차 (새 세션)**: 같은 시장 데이터인데 추천이 저위험 렌딩·스테이킹 중심으로 바뀜. 근거에 "변동성이 큰 상품을 부담스러워하셨기 때문에"가 인용되고, **수익 목표(10%)와 거절 기억이 충돌할 때 거절 기억을 우선했다**는 설명이 나옴
 5. **Behind the scenes** 탭에서 바뀐 검색 의도 문장과 SQL, mem9 API 호출 로그를 보여줌
 
@@ -808,7 +815,8 @@ tidb-mem9-demo/
 ├── core/
 │   ├── config.py               # 환경변수 로드 (.env / Streamlit Secrets), 누락 키 확인
 │   ├── db.py                   # TiDB 연결 (PyMySQL, TLS), 공유 연결 Database, SQL 로그 기록
-│   ├── mem9_client.py          # mem9 REST 클라이언트 (httpx), 호출 로그 기록
+│   ├── mem9_client.py          # mem9 REST 클라이언트 (httpx), 호출 로그 기록, 429 재시도
+│   ├── memory_jobs.py          # 승인·거절 뒤 mem9 기억 정리 백그라운드 작업
 │   ├── call_log.py             # Behind the scenes 호출 기록 (작업 공간별, ContextVar)
 │   ├── workspace.py            # 방문자별 작업 공간: 생성(mem9 온보딩 기억), 자기 작업 공간 초기화
 │   ├── llm.py                  # ChatAnthropic 생성, Structured Output, 모델 설정 (필요 시 anthropic SDK 대체)
@@ -885,6 +893,7 @@ tidb-mem9-demo/
 | mem9 `q` 검색이 의미 검색이 아님 | `q`를 쓰지 않고 사용자 기억 전체를 목록으로 가져와 Claude에 전달 |
 | 임베딩 입력 길이 제한(2,048자) | 원문 대신 LLM이 만든 요약(`summary`)만 임베딩 |
 | 라이브 시연 중 외부 API 장애 | 데모 초기화 버튼, 직전 리허설의 LLM 응답 캐시 모드 |
+| 앱 재시작 시 진행 중인 기억 정리 작업 유실 | 작업은 서버 메모리에만 있음. 결정·체결은 이미 TiDB에 저장되어 있고, 사라지는 것은 그 순간 정리 중이던 mem9 기억뿐. 시연 직전 재시작을 피함 |
 | LLM 응답 품질 부족 | `LLM_MODEL`만 `claude-sonnet-5-5`로 전환 |
 | LLM 응답 중단(`stop_reason`이 `refusal`/`max_tokens`) | 감지 후 재시도, 실패 시 사용자에게 안내 |
 | LLM이 잘못된 실행 명령 생성 | 그래프의 `validate` 노드에서 보유 수량·체인·슬리피지 재검증, 실패 시 1회 재생성 |

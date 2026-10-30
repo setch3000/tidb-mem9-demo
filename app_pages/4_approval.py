@@ -5,7 +5,8 @@ import streamlit as st
 
 from core.db import get_db
 from core.engine_mock import route
-from ui.common import current_user, current_workspace, decide_order, localized, thread_snapshot, waiting_threads
+from ui.common import (current_user, current_workspace, decide_order, localized, memory_job_panel, thread_snapshot,
+                       waiting_threads)
 from ui.i18n import columns, krw, t
 
 user = current_user()
@@ -79,17 +80,13 @@ if thread_id := st.session_state.get("last_decision"):
             st.markdown(t("p4.just_done"))
             if order := state.get("order"):
                 st.success(t("p4.filled", id=order["order_id"], status=order["status"], tx=order["tx_hash"][:18]))
-            events = state.get("memory_events", [])
-            if events:
-                st.markdown(t("p4.memory_events"))
-                for e, text in zip(events, localized([e["content"] for e in events])):
-                    st.markdown(f"- {t('p4.event.' + e['kind'])}: {text}")
             last = state["messages"][-1] if state.get("messages") else None
             if last is not None and getattr(last, "content", None):
                 content = last.content if isinstance(last.content, str) else \
                     "".join(b.get("text", "") for b in last.content if isinstance(b, dict))
                 st.markdown(t("p4.agent"))
                 st.write(localized([content])[0])
+            memory_job_panel(state.get("memory_job"))      # mem9 기억 정리 (기본 접힘, 백그라운드)
 
 # ---- 최근 결정 이력 ----
 history = get_db().query(
