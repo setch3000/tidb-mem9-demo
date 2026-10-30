@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import streamlit as st
@@ -14,8 +15,8 @@ from langgraph.types import Command
 from core import engine_mock, workflow
 from core.audit import log_event
 from core.db import get_db
-from core.llm import translate
-from ui.i18n import lang, t
+from core.llm import needs_translation, translate
+from ui.i18n import LANGS, lang, t
 
 PAGE_RECOMMEND = "app_pages/3_recommendations.py"
 PAGE_APPROVAL = "app_pages/4_approval.py"
@@ -47,9 +48,33 @@ def current_user() -> dict:
 
 # ---- 표시용 번역 ----
 
+def _src_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 @st.cache_data(show_spinner=False, max_entries=2000)
 def _translate(texts: tuple[str, ...], target: str) -> list[str]:
-    return translate(list(texts), target)
+    """TiDB 번역 캐시(translations)에서 먼저 찾고, 없는 문장만 Claude로 번역해 저장한다."""
+    need = list(dict.fromkeys(x for x in texts if needs_translation(x, target)))
+    if not need:
+        return list(texts)
+    db = get_db()
+    hashes = {x: _src_hash(x) for x in need}
+    rows = db.query(
+        f"SELECT src_hash, text FROM translations WHERE lang = %s AND src_hash IN ({', '.join(['%s'] * len(need))})",
+        (target, *hashes.values()), label="번역: 캐시 조회")
+    cached = {r["src_hash"]: r["text"] for r in rows}
+    mapping = {x: cached[h] for x, h in hashes.items() if h in cached}
+    missing = [x for x in need if x not in mapping]
+    if missing:
+        done = translate(missing, target)
+        new = [(hashes[x], target, x, y) for x, y in zip(missing, done) if y != x]
+        if new:
+            db.executemany(
+                "INSERT INTO translations (src_hash, lang, src, text) VALUES (%s, %s, %s, %s) "
+                "ON DUPLICATE KEY UPDATE text = VALUES(text)", new, label="번역: 캐시 저장")
+        mapping.update(zip(missing, done))
+    return [mapping.get(x, x) for x in texts]
 
 
 def localized(texts: list[str]) -> list[str]:
@@ -57,9 +82,19 @@ def localized(texts: list[str]) -> list[str]:
     if not texts:
         return texts
     try:
-        return _translate(tuple(texts), lang())
+        with st.spinner(t("common.translating")):   # 캐시에 있으면 0.5초 안에 끝나 표시되지 않는다
+            return _translate(tuple(texts), lang())
     except Exception:
         return texts      # 번역 실패 시 원문 그대로 보여준다
+
+
+def prepare_translations(texts: list[str]) -> None:
+    """두 언어의 번역을 미리 만들어 캐시에 넣는다 (화면을 처음 열 때 기다리지 않도록)."""
+    for target in LANGS:
+        try:
+            _translate(tuple(texts), target)
+        except Exception:
+            pass          # 미리 만들지 못해도 화면에서 다시 시도한다
 
 
 def localized_one(text: str | None) -> str:

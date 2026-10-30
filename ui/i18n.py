@@ -22,8 +22,9 @@ def default_lang() -> str:
 
 
 def lang() -> str:
+    # 토글이 그려지기 전(메뉴·사이드바 제목)에도 공유 링크의 ?lang= 값을 따르도록 URL을 함께 본다
     try:
-        value = st.session_state.get("lang")
+        value = st.session_state.get("lang") or st.query_params.get("lang")
     except Exception:
         value = None
     return OPTIONS.get(value) or default_lang()
@@ -188,6 +189,9 @@ T: dict[str, tuple[str, str]] = {
     "p1.rerun": ("분석 결과 지우고 다시 하기", "Clear results and re-run"),
     "p1.progress_start": ("분석 준비 중…", "Preparing analysis…"),
     "p1.progress": ("원문 분석 {done}/{total} (동시 {c}건)", "Analyzing signals {done}/{total} ({c} at a time)"),
+    "common.translating": ("현재 언어로 번역하는 중… (처음 한 번만, 이후에는 TiDB 번역 캐시 사용)",
+                           "Translating into the current language… (first time only, then served from the TiDB cache)"),
+    "p1.progress_translate": ("두 언어 화면용 번역을 준비하는 중…", "Preparing translations for both languages…"),
     "p1.progress_done": ("완료: 기회 {n}개 저장 ({s}초)", "Done: {n} opportunities saved ({s}s)"),
     "p1.tab_opps": ("투자 기회 {n}개", "Opportunities ({n})"),
     "p1.tab_raw": ("원문 {n}건", "Signals ({n})"),
@@ -422,6 +426,8 @@ LABELS_EN = {
     "화면: 체크포인트 이력": "UI: checkpoint history",
     "화면: 최근 추천 스레드": "UI: latest recommendation thread",
     "화면: 투자 기회 목록": "UI: opportunity list",
+    "화면: 번역 준비": "UI: prepare translations",
+    "번역: 캐시 조회": "Translation: cache lookup", "번역: 캐시 저장": "Translation: cache save",
     "기록: 이벤트 저장": "Audit: save event",
     "기록: 이벤트 조회": "Audit: query events",
     "기록: 사용자별 집계": "Audit: aggregate by user",

@@ -168,3 +168,14 @@ CREATE TABLE IF NOT EXISTS access_logs (
   KEY idx_access_at (at),
   KEY idx_access_email_at (email, at)
 );
+
+-- 화면 표시용 번역 캐시 (원문 해시 + 대상 언어). 원문이 같으면 다시 번역하지 않는다.
+-- 앱 재시작·다른 세션에서도 재사용한다. 원문 기준 캐시라 데모 초기화로 지우지 않는다 (APP_TABLES에 넣지 않음)
+CREATE TABLE IF NOT EXISTS translations (
+  src_hash    CHAR(64)    NOT NULL,              -- 원문 SHA-256
+  lang        VARCHAR(8)  NOT NULL,              -- 대상 언어 (ko / en)
+  src         TEXT        NOT NULL,
+  text        TEXT        NOT NULL,
+  created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (src_hash, lang)
+);

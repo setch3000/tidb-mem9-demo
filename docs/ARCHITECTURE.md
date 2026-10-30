@@ -391,6 +391,7 @@ state = graph.invoke(Command(resume={"action": "reject", "reason": reason}), con
 | `recommendations` | id, user_id, opportunity_id, thread_id, rank, rationale, memory_refs(JSON), command(JSON), model, status(`AWAITING_APPROVAL`/`APPROVED`/`REJECTED`), decided_at, created_at | 추천 이력, LangGraph 스레드 연결 |
 | `execution_orders` | id, recommendation_id, command(JSON), status(`PENDING`/`SUBMITTED`/`CONFIRMED`/`FAILED`), tx_hash, created_at, updated_at | 실행 명령과 상태 |
 | `access_logs` | id, at, event, email, name, ip·forwarded_for(비워 둠), user_agent, session_id, detail(JSON) | 접속·사용 기록 (로그인, LLM 사용). **데모 초기화로 지우지 않음** |
+| `translations` | src_hash, lang, src, text, created_at | 화면 표시용 번역 캐시. 원문 기준이라 **데모 초기화로 지우지 않음** |
 | `lg_checkpoints` | thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, step, source, checkpoint(BLOB), metadata(BLOB), created_at | LangGraph 체크포인트 (`TiDBSaver.setup()`이 생성, 직접 수정하지 않음) |
 | `lg_checkpoint_blobs` | thread_id, checkpoint_ns, channel, version, type, blob | 채널별 상태 값 |
 | `lg_checkpoint_writes` | thread_id, checkpoint_ns, checkpoint_id, task_id, idx, task_path, channel, type, blob | 노드 중간 쓰기 (interrupt 대기 정보 포함) |
@@ -594,9 +595,12 @@ class ExecutionCommand(BaseModel):
 - **세 종류의 글**
   1. **고정 문구**: [ui/i18n.py](../ui/i18n.py)의 `t(key)` 사전에 둡니다. 화면 문구, 컬럼 이름, SQL 라벨, 금액 표기(`4.60억 원` / `KRW 460M`), 아키텍처 그림이 모두 여기에 있습니다.
   2. **새로 만드는 AI 결과**: 추천 그래프 상태에 `lang`을 넣고 프롬프트 끝에 출력 언어 지시(`core/llm.output_language_rule`)를 붙입니다. 실행을 요청하거나 결정을 내리며 재개할 때도 현재 언어로 갱신하므로, 도중에 언어를 바꾸면 그다음 agent 답변부터 바뀐 언어로 나옵니다.
-  3. **저장된 내용·다른 언어로 만든 결과**: 화면에 보일 때 `core/llm.translate()`로 번역하고 `st.cache_data`로 캐시합니다. 원본은 바꾸지 않습니다.
+  3. **저장된 내용·다른 언어로 만든 결과**: 화면에 보일 때 `core/llm.translate()`로 번역합니다. 원본은 바꾸지 않습니다.
      - 대상: 분석된 기회의 제목·요약, mem9 기억, 이전 추천
-     - 처음 전환할 때만 몇 초가 걸립니다.
+     - **번역 캐시**: 번역 결과를 TiDB `translations` 테이블(원문 SHA-256 + 대상 언어)에 저장하고, 그 위에 프로세스 안의 `st.cache_data`를 둡니다. 앱이 재시작되거나 다른 사람이 접속해도 같은 원문은 다시 번역하지 않습니다.
+     - **미리 번역**: Signal 분석이 끝나면 투자 기회 22개(제목·요약 44문장)를 두 언어로 미리 번역해 둡니다(약 10초, 진행 표시줄에 표시). 그래서 영어 화면을 처음 열 때 기다리지 않습니다.
+     - 캐시에 없는 문장을 번역할 때는 "번역하는 중" 표시가 나옵니다(0.5초 안에 끝나면 표시하지 않음).
+     - 측정 (2026-10-30): 영어 투자 기회 목록 번역이 캐시 없이 약 10초, TiDB 캐시에서 0.05초.
      - 수집 원문(`raw_signals`)은 입력 데이터라 그대로 보여줍니다.
 - **검증 (2026-10-29)**
   - `run_scenario.py --lang ko`, `--lang en` 모두 합격 기준 7개를 통과했습니다.

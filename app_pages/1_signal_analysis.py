@@ -6,7 +6,7 @@ import streamlit as st
 from core import analyzer, workflow
 from core.audit import log_event
 from core.db import get_db
-from ui.common import localized
+from ui.common import localized, prepare_translations
 from ui.i18n import columns, t
 
 db = get_db()
@@ -42,6 +42,9 @@ if run:
             if node == "save_opportunities":
                 progress.progress(1.0, text=t("p1.progress_done", n=value["saved"],
                                               s=f"{time.perf_counter() - start:.0f}"))
+    progress.progress(1.0, text=t("p1.progress_translate"))
+    saved = db.query("SELECT title, summary FROM opportunities", label="화면: 번역 준비")
+    prepare_translations([x for o in saved for x in (o["title"], o["summary"])])
     st.session_state["analysis_result"] = {"skipped": skipped}
     st.rerun()
 
