@@ -5,7 +5,8 @@ import streamlit as st
 from core.db import get_db
 from core.mem9_client import get_mem9, user_app_id
 from core.overseas import overseas_status
-from ui.common import current_user, current_workspace, memory_lines, persona_name
+from ui.common import (MEMORY_SOURCES, current_user, current_workspace, memory_lines, memory_source,
+                       persona_name)
 from ui.i18n import columns, krw, t
 
 db = get_db()
@@ -43,16 +44,29 @@ with left:
     st.dataframe(columns([{**a, "kind": t("region_short." + a["kind"])} for a in accounts]),
                  hide_index=True, alt=t("p2.accounts"))
 
-with right:
+# Agent 기억 영역만 배경색을 달리해 TiDB 표와 구분한다 (컨테이너에 배경색 옵션이 없어 이 키에만 CSS를 준다).
+# 반투명 색이라 밝은·어두운 테마 모두에서 글자 대비가 유지된다
+st.html("""<style>
+.st-key-agent_memory { background: rgba(124, 92, 255, 0.08); border-color: rgba(124, 92, 255, 0.35) !important; }
+</style>""")
+with right, st.container(border=True, key="agent_memory"):
     app_id = user_app_id(uid, current_workspace())
     memories = get_mem9().list_memories(app_id)
     shown = [m for m in memories if m["memory_type"] != "session"]
     st.markdown(t("p2.memories", n=len(shown), app=app_id))
-    if not shown:
-        st.info(t("p2.no_memories"))
-    for m, line in zip(shown, memory_lines(shown)):
-        st.markdown(line)
-        st.caption(f"{m.get('relative_age', '')} " + " ".join(f"`{x}`" for x in m.get("tags") or []))
+    lines = dict(zip((id(m) for m in shown), memory_lines(shown)))     # 번역은 한 번에
+    for source in MEMORY_SOURCES:
+        group = [m for m in shown if memory_source(m) == source]
+        if source == "history" and not group:
+            continue
+        st.markdown(t(f"mem.{source}", n=len(group)))
+        if source != "history":
+            st.caption(t(f"mem.{source}_desc"))
+        if source == "learned" and not group:
+            st.info(t("mem.learned_empty"), icon=":material/lightbulb:")
+        for m in group:
+            st.markdown(lines[id(m)])
+            st.caption(f"{m.get('relative_age', '')} " + " ".join(f"`{x}`" for x in m.get("tags") or []))
     st.caption(t("p2.memory_legend"))
     with st.expander(t("p2.raw_memories")):
         for m in memories:

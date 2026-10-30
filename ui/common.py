@@ -107,6 +107,19 @@ def localized_one(text: str | None) -> str:
     return localized([text])[0] if text else (text or "")
 
 
+MEMORY_SOURCES = ("onboarding", "learned", "history")
+
+
+def memory_source(m: dict) -> str:
+    """기억이 생긴 곳: 가입 시 선호 / 대화에서 배운 기억 / 결정·실행 기록 (화면 구분용)."""
+    tags = set(m.get("tags") or [])
+    if m.get("memory_type") == "insight" or "insight-fallback" in tags:
+        return "learned"
+    if "preference" in tags:
+        return "onboarding"
+    return "history"          # decision, execution, 그 밖의 pinned
+
+
 def memory_lines(memories: list[dict]) -> list[str]:
     shown = localized([m["content"] for m in memories])
     return [f"{MEMORY_ICONS.get(m.get('memory_type'), '•')} {text}" for m, text in zip(memories, shown)]

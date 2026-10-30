@@ -2,9 +2,9 @@
 import streamlit as st
 
 from core.db import get_db
-from ui.common import (PAGE_APPROVAL, current_user, current_workspace, latest_thread, localize_cards, localized, memory_lines,
-                       pending, persona_name, render_card, request_execution, start_recommendation,
-                       thread_snapshot, waiting_threads)
+from ui.common import (MEMORY_SOURCES, PAGE_APPROVAL, current_user, current_workspace, latest_thread,
+                       localize_cards, localized, memory_lines, memory_source, pending, persona_name, render_card,
+                       request_execution, start_recommendation, thread_snapshot, waiting_threads)
 from ui.i18n import columns, t
 
 user = current_user()
@@ -41,9 +41,14 @@ with right:
     st.caption(t("p3.intent"))
     st.info(intent)
     st.caption(reason)
-    with st.expander(t("p3.memories", n=len(state.get("memories", [])))):
-        for line in memory_lines(state.get("memories", [])):
-            st.markdown(f"- {line}")
+    used = state.get("memories", [])
+    with st.expander(t("p3.memories", n=len(used))):
+        lines = dict(zip((id(m) for m in used), memory_lines(used)))
+        for source in MEMORY_SOURCES:
+            if group := [m for m in used if memory_source(m) == source]:
+                st.caption(t(f"mem.{source}", n=len(group)).replace("**", ""))
+                for m in group:
+                    st.markdown(f"- {lines[id(m)]}")
     candidates = state.get("candidates", [])
     with st.expander(t("p3.candidates", n=len(candidates))):
         titles = localized([c["title"] for c in candidates])

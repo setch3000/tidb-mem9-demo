@@ -227,7 +227,16 @@ T: dict[str, tuple[str, str]] = {
                     "**Holdings** · TiDB `user_holdings` (location = on-chain network or exchange account)"),
     "p2.accounts": ("**거래소 계정** · TiDB `user_exchange_accounts` + `exchange_chains`",
                     "**Exchange accounts** · TiDB `user_exchange_accounts` + `exchange_chains`"),
-    "p2.memories": ("**AI 기억 {n}개** · mem9 `appId={app}`", "**AI memories ({n})** · mem9 `appId={app}`"),
+    "p2.memories": ("#### Agent 기억 {n}개\nmem9 `appId={app}`", "#### Agent memory ({n})\nmem9 `appId={app}`"),
+    "mem.onboarding": ("**가입 시 선호** ({n})", "**Onboarding preferences** ({n})"),
+    "mem.onboarding_desc": ("온보딩 때 저장한 선호입니다.", "Preferences saved at onboarding."),
+    "mem.learned": ("**대화에서 배운 기억** ({n})", "**Learned from conversation** ({n})"),
+    "mem.learned_desc": ("거절 사유 같은 대화에서 mem9가 추출했습니다.",
+                         "Extracted by mem9 from conversation, such as a reason for rejecting."),
+    "mem.learned_empty": ("아직 없습니다. 승인 화면에서 추천을 거절하고 사유를 입력하면 여기에 생깁니다.",
+                          "None yet. Reject a recommendation on the approval screen and enter a reason, and it "
+                          "appears here."),
+    "mem.history": ("**결정·실행 기록** ({n})", "**Decisions and executions** ({n})"),
     "p2.no_memories": ("아직 기억이 없습니다.", "No memories yet."),
     "p2.memory_legend": ("📌 직접 저장한 기억(pinned) · 💡 mem9가 대화에서 추출한 기억(insight). "
                          "mem9가 다른 언어로 추출한 기억은 화면에서만 현재 언어로 옮겨 보여줍니다.",
